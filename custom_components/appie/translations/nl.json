@@ -45,6 +45,9 @@
     },
     "no_product": {
       "message": "Geen product gevonden voor \"{query}\"."
+    },
+    "unknown_receipt": {
+      "message": "Kassabon {receipt_id} staat niet tussen je recente bonnen."
     }
   },
   "services": {
@@ -87,6 +90,16 @@
         "aantal": {
           "name": "Aantal",
           "description": "Hoeveel recepten je terug wilt (1 tot 30)."
+        }
+      }
+    },
+    "get_receipt": {
+      "name": "Kassabon ophalen",
+      "description": "Haalt een van je recente kassabonnen op, met alle regels en een link naar de PDF. Er wordt niets bewaard.",
+      "fields": {
+        "receipt_id": {
+          "name": "Kassabon-id",
+          "description": "Id uit het attribuut `recent` van de sensor Laatste kassabon. Leeg: je laatste bon."
         }
       }
     }

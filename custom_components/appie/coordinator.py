@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
@@ -88,6 +89,7 @@ class AppieData:
     store: StoreCoordinator
     bargains: BargainsCoordinator
     recipes: RecipesCoordinator
+    receipt_viewer: ReceiptViewerCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -433,3 +435,53 @@ class RecipesCoordinator(_AppieCoordinator[list[Recipe]]):
 
     async def _fetch(self) -> list[Recipe]:
         return parse_recommended_recipes(await self.client.get_recommended_recipes() or {})
+
+
+@dataclass
+class ViewedReceipt:
+    receipt: Receipt
+    detail: ReceiptDetail
+
+
+class ReceiptViewerCoordinator(_AppieCoordinator[ViewedReceipt | None]):
+    """The receipt picked in the select entity, fetched when picked.
+
+    Only the picked receipt is held, in memory; nothing is stored. It starts
+    on the latest receipt, whose details the receipts coordinator already has.
+    """
+
+    def __init__(self, hass, entry, client, receipts: ReceiptsCoordinator) -> None:
+        super().__init__(hass, entry, client, "kassabon bekijken", None)
+        self.receipts = receipts
+        self.selected: str | None = None
+        # Signs the PDF links; new on every start, never stored.
+        self.pdf_token = secrets.token_urlsafe(32)
+
+    def pdf_url(self, receipt_id: str) -> str:
+        return f"/api/{DOMAIN}/kassabon/{receipt_id}?token={self.pdf_token}"
+
+    def receipts_changed(self) -> None:
+        """A new receipt came in: follow it unless another one was picked."""
+        if self.selected is None and self.receipts.data and self.receipts.data.latest:
+            if not self.data or self.data.receipt.id != self.receipts.data.latest.id:
+                self.hass.async_create_task(self.async_refresh())
+
+    def find(self, receipt_id: str) -> Receipt | None:
+        data = self.receipts.data
+        return next((r for r in data.receipts if r.id == receipt_id), None) if data else None
+
+    async def _fetch(self) -> ViewedReceipt | None:
+        data = self.receipts.data
+        receipt_id = self.selected or (data.latest.id if data and data.latest else None)
+        receipt = self.find(receipt_id) if receipt_id else None
+        if receipt is None:
+            return None
+        if self.data and self.data.receipt.id == receipt.id:
+            return self.data
+        if data.latest_detail and data.latest_detail.id == receipt.id:
+            return ViewedReceipt(receipt, data.latest_detail)
+        return ViewedReceipt(receipt, parse_receipt_detail(await self.client.get_receipt_detail(receipt.id)))
+
+    async def async_select(self, receipt_id: str) -> None:
+        self.selected = receipt_id
+        await self.async_refresh()

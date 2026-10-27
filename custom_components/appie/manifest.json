@@ -3,7 +3,7 @@
   "name": "Albert Heijn",
   "codeowners": ["@eejeha"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["http"],
   "documentation": "https://github.com/eejeha/Appie-Dashboard",
   "integration_type": "service",
   "iot_class": "cloud_polling",

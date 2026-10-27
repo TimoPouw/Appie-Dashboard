@@ -22,19 +22,22 @@ from .coordinator import (
     ListCoordinator,
     ListCostCoordinator,
     ReceiptsCoordinator,
+    ReceiptViewerCoordinator,
     RecipesCoordinator,
     StoreCoordinator,
 )
+from .receipt_pdf import ReceiptPdfView
 from .services import async_setup_services
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR, Platform.TODO]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SELECT, Platform.SENSOR, Platform.TODO]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the services."""
+    """Register the services and the receipt PDF view."""
     async_setup_services(hass)
+    hass.http.register_view(ReceiptPdfView())
     return True
 
 
@@ -71,6 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     store = StoreCoordinator(hass, entry, client)
     bargains = BargainsCoordinator(hass, entry, client, store, favorites)
     recipes = RecipesCoordinator(hass, entry, client)
+    receipt_viewer = ReceiptViewerCoordinator(hass, entry, client, receipts)
 
     # Sequential on purpose: the first call may refresh the token.
     await shopping_list.async_config_entry_first_refresh()
@@ -82,12 +86,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await store.async_refresh()
     await bargains.async_refresh()
     await recipes.async_refresh()
+    # Starts on the latest receipt, which the receipts coordinator already has: no call.
+    await receipt_viewer.async_refresh()
 
     for follower in (bonus, list_cost, dont_forget):
         entry.async_on_unload(shopping_list.async_add_listener(follower.list_changed))
     entry.async_on_unload(favorites.async_add_listener(bargains.favorites_changed))
+    entry.async_on_unload(receipts.async_add_listener(receipt_viewer.receipts_changed))
     entry.runtime_data = AppieData(
-        client, shopping_list, bonus, receipts, favorites, list_cost, dont_forget, store, bargains, recipes
+        client, shopping_list, bonus, receipts, favorites, list_cost, dont_forget, store, bargains, recipes, receipt_viewer
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.

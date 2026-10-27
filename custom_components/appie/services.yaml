@@ -42,3 +42,11 @@ search_recipes:
           min: 1
           max: 30
           mode: box
+
+get_receipt:
+  fields:
+    receipt_id:
+      required: false
+      example: "AH-1234567890"
+      selector:
+        text:

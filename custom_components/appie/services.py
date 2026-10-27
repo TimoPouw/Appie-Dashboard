@@ -1,4 +1,4 @@
-"""Services: product search, adding a product by name, recipe search."""
+"""Services: product search, adding a product by name, recipes, receipts."""
 
 from __future__ import annotations
 
@@ -10,18 +10,28 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
 
 from .api import AppieError
 from .const import DOMAIN
 from .coordinator import AppieConfigEntry
-from .models import best_match, new_product_item, parse_recipe_search, parse_search
+from .models import (
+    best_match,
+    new_product_item,
+    parse_receipt_detail,
+    parse_recipe_search,
+    parse_search,
+    receipt_view,
+)
 
 SERVICE_SEARCH = "search"
 SERVICE_ADD_PRODUCT = "add_product"
 SERVICE_SEARCH_RECIPES = "search_recipes"
+SERVICE_GET_RECEIPT = "get_receipt"
 
 ATTR_QUERY = "zoekterm"
 ATTR_COUNT = "aantal"
+ATTR_RECEIPT_ID = "receipt_id"
 
 # Enough results for add_product to find a product we often buy.
 ADD_PRODUCT_CANDIDATES = 20
@@ -44,6 +54,7 @@ RECIPES_SCHEMA = vol.Schema(
         vol.Optional(ATTR_COUNT, default=7): vol.All(vol.Coerce(int), vol.Range(min=1, max=30)),
     }
 )
+RECEIPT_SCHEMA = vol.Schema({vol.Optional(ATTR_RECEIPT_ID): cv.string})
 
 
 def _entry(hass: HomeAssistant) -> AppieConfigEntry:
@@ -109,6 +120,31 @@ def async_setup_services(hass: HomeAssistant) -> None:
         recipes, total = parse_recipe_search(raw)
         return {"recepten": [asdict(r) for r in recipes[: call.data[ATTR_COUNT]]], "totaal": total}
 
+    async def get_receipt(call: ServiceCall) -> ServiceResponse:
+        data = _entry(hass).runtime_data
+        receipts = data.receipts.data
+        receipt_id = call.data.get(ATTR_RECEIPT_ID) or (receipts.latest.id if receipts and receipts.latest else None)
+        # Only the account's own recent receipts.
+        receipt = data.receipt_viewer.find(receipt_id) if receipt_id else None
+        if receipt is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_receipt",
+                translation_placeholders={"receipt_id": str(receipt_id)},
+            )
+        if receipts.latest_detail and receipts.latest_detail.id == receipt.id:
+            detail = receipts.latest_detail
+        else:
+            try:
+                detail = parse_receipt_detail(await data.client.get_receipt_detail(receipt.id))
+            except AppieError as err:
+                raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        view = receipt_view(receipt, detail, dt_util.get_default_time_zone())
+        return {**view, "pdf_url": data.receipt_viewer.pdf_url(receipt.id)}
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_GET_RECEIPT, get_receipt, schema=RECEIPT_SCHEMA, supports_response=SupportsResponse.ONLY
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_SEARCH_RECIPES, search_recipes, schema=RECIPES_SCHEMA, supports_response=SupportsResponse.ONLY
     )

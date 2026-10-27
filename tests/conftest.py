@@ -44,6 +44,7 @@ def api():
         "get_bargains": AsyncMock(return_value=BARGAINS),
         "get_recommended_recipes": AsyncMock(return_value=RECOMMENDED_RECIPES),
         "search_recipes": AsyncMock(return_value=RECIPE_SEARCH),
+        "get_receipt_pdf": AsyncMock(return_value=b"%PDF-1.4 kassabon"),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]
     patches.append(patch("custom_components.appie.coordinator.FAVORITES_DAYS", 100_000))

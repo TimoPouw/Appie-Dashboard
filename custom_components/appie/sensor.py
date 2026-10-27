@@ -21,11 +21,12 @@ from .coordinator import (
     FavoritesCoordinator,
     ListCostCoordinator,
     ReceiptsCoordinator,
+    ReceiptViewerCoordinator,
     RecipesCoordinator,
     StoreCoordinator,
 )
 from .entity import device_info
-from .models import SOURCE_PERSONAL, favorite_attributes
+from .models import SOURCE_PERSONAL, favorite_attributes, receipt_view
 
 RECENT_RECEIPTS = 10
 
@@ -47,6 +48,7 @@ async def async_setup_entry(
             StoreSensor(entry, data.store),
             BargainsSensor(entry, data.bargains),
             RecipesSensor(entry, data.recipes),
+            PickedReceiptSensor(entry, data.receipt_viewer),
         ]
     )
 
@@ -98,6 +100,7 @@ class LatestReceiptSensor(_Base, SensorEntity):
 
     def __init__(self, entry: AppieConfigEntry, coordinator: ReceiptsCoordinator) -> None:
         super().__init__(entry, coordinator, "laatste_kassabon", "Laatste kassabon")
+        self._viewer = entry.runtime_data.receipt_viewer
 
     @property
     def native_value(self) -> float | None:
@@ -115,7 +118,12 @@ class LatestReceiptSensor(_Base, SensorEntity):
             "discount_total": detail.discount_total if detail else None,
             "payments": detail.payments if detail else [],
             "recent": [
-                {"datetime": r.local(dt_util.get_default_time_zone()).isoformat(), "total": r.total}
+                {
+                    "datetime": r.local(dt_util.get_default_time_zone()).isoformat(),
+                    "total": r.total,
+                    "id": r.id,
+                    "pdf_url": self._viewer.pdf_url(r.id),
+                }
                 for r in data.receipts[:RECENT_RECEIPTS]
             ],
         }
@@ -323,3 +331,32 @@ class RecipesSensor(_Base, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"recepten": [asdict(r) for r in self.coordinator.data or []]}
+
+
+class PickedReceiptSensor(_Base, SensorEntity):
+    """The receipt picked in select.albert_heijn_kassabon, with its lines."""
+
+    _attr_icon = "mdi:receipt-text-check"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "EUR"
+    # Looked at, not kept: none of it goes into the database.
+    _unrecorded_attributes = frozenset(
+        {"receipt_id", "datetime", "items", "discounts", "discount_total", "payments", "pdf_url"}
+    )
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: ReceiptViewerCoordinator) -> None:
+        super().__init__(entry, coordinator, "gekozen_kassabon", "Gekozen kassabon")
+
+    @property
+    def native_value(self) -> float | None:
+        viewed = self.coordinator.data
+        return viewed.receipt.total if viewed else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        viewed = self.coordinator.data
+        if viewed is None:
+            return {}
+        view = receipt_view(viewed.receipt, viewed.detail, dt_util.get_default_time_zone())
+        view.pop("total")
+        return {**view, "pdf_url": self.coordinator.pdf_url(viewed.receipt.id)}

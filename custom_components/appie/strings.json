@@ -45,6 +45,9 @@
     },
     "no_product": {
       "message": "No product found for \"{query}\"."
+    },
+    "unknown_receipt": {
+      "message": "Receipt {receipt_id} is not among your recent receipts."
     }
   },
   "services": {
@@ -87,6 +90,16 @@
         "aantal": {
           "name": "Number",
           "description": "How many recipes to return (1 to 30)."
+        }
+      }
+    },
+    "get_receipt": {
+      "name": "Get receipt",
+      "description": "Fetches one of your recent receipts with all its lines and a link to the PDF. Nothing is stored.",
+      "fields": {
+        "receipt_id": {
+          "name": "Receipt id",
+          "description": "Id from the `recent` attribute of the latest receipt sensor. Empty: the latest receipt."
         }
       }
     }

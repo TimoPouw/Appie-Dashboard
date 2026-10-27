@@ -592,6 +592,33 @@ def pos_name(name: str) -> str:
     return "AH" + soft[2:] if name.startswith("AH ") else soft
 
 
+def receipt_view(receipt: Receipt, detail: ReceiptDetail, tz: tzinfo | None = None) -> dict[str, Any]:
+    """One receipt as the picked-receipt sensor and appie.get_receipt show it."""
+    return {
+        "receipt_id": receipt.id,
+        "datetime": receipt.local(tz).isoformat(),
+        "total": receipt.total,
+        "items": detail.items,
+        "discounts": detail.discounts,
+        "discount_total": detail.discount_total,
+        "payments": detail.payments,
+    }
+
+
+DAY_ABBR = ["ma", "di", "wo", "do", "vr", "za", "zo"]
+MONTH_ABBR = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+
+
+def receipt_label(receipt: Receipt, tz: tzinfo | None = None) -> str:
+    """'za 24 okt 2026 14:32 · € 36,16', as shown in the receipt picker."""
+    when = receipt.local(tz)
+    amount = f"{receipt.total:.2f}".replace(".", ",")
+    return (
+        f"{DAY_ABBR[when.weekday()]} {when.day} {MONTH_ABBR[when.month - 1]} {when.year} "
+        f"{when:%H:%M} · € {amount}"
+    )
+
+
 def month_total(receipts: list[Receipt], today: date, tz: tzinfo | None = None) -> float:
     return round(
         sum(r.total for r in receipts if (r.day(tz).year, r.day(tz).month) == (today.year, today.month)), 2

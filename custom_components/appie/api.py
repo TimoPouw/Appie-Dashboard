@@ -9,6 +9,7 @@ against a live account. Calls added later are marked in their docstring:
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import re
 import time
@@ -177,6 +178,13 @@ $recommendationDate: String = null) {
 """
     + RECIPE_FRAGMENTS
 )
+
+# appie-go receipts.go, fetchPosReceiptPdfQuery.
+RECEIPT_PDF_QUERY = """query FetchPosReceiptPdf($id: String!) {
+  posReceiptPdf(id: $id) {
+    pdfBase64
+  }
+}"""
 
 
 class AppieError(Exception):
@@ -350,6 +358,20 @@ class AppieClient:
 
     async def get_receipt_detail(self, receipt_id: str) -> dict:
         return await self._graphql(RECEIPT_DETAIL_QUERY, {"id": receipt_id})
+
+    async def get_receipt_pdf(self, receipt_id: str) -> bytes:
+        """The receipt as AH renders it: GraphQL FetchPosReceiptPdf. (verified)
+
+        Query from appie-go receipts.go (GetReceiptPDF); the PDF comes base64-encoded.
+        """
+        data = await self._graphql(RECEIPT_PDF_QUERY, {"id": receipt_id})
+        encoded = ((data.get("data") or {}).get("posReceiptPdf") or {}).get("pdfBase64")
+        if not encoded:
+            raise AppieError(f"no pdf for receipt {receipt_id}")
+        try:
+            return base64.b64decode(encoded)
+        except ValueError as err:
+            raise AppieError(f"receipt pdf: {err}") from err
 
     # products
 
