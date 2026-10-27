@@ -348,7 +348,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest
 ```
 
-Bij elke push en pull request draaien hassfest, de HACS-controle en de tests (GitHub Actions). Een release maak je door een tag te pushen die gelijk is aan de versie in `manifest.json`, bijvoorbeeld `v0.3.0-beta.1`; de release-notes komen uit `CHANGELOG.md`, en een tag met `-` wordt een pre-release.
+Bij elke push en pull request draaien hassfest, de HACS-controle en de tests (GitHub Actions). Een release maak je via Actions → **Release** → **Run workflow** op `main`: die tagt de commit met `v` plus de versie uit `manifest.json` (bijvoorbeeld `v0.3.0-beta.1`). Een tag met die naam pushen werkt ook. De release-notes komen uit `CHANGELOG.md`, en een versie met `-` wordt een pre-release.
 
 Logo en icoon: de bron is [`assets/Albert_Heijn_Logo.svg`](assets/Albert_Heijn_Logo.svg). Exporteer een SVG eerst naar een PNG van minstens 512 px, en zet die dan in de goede maten met
 
