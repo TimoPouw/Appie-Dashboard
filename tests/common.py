@@ -40,6 +40,34 @@ DONT_FORGET = {
     ],
 }
 
+# GraphQL GetFavoriteStore, shaped like appie-go's API doc (dates around Tue 27 Oct 2026).
+STORE = {"data": {"storesFavouriteStore": {
+    "id": 1527,
+    "address": {"street": "Nachtegaalstraat", "houseNumber": 48, "postalCode": "3581AD", "city": "Utrecht"},
+    "openingDays": [
+        {"date": "2026-10-26", "openingHour": {"openFrom": "08:00", "openUntil": "22:00"}},
+        {"date": "2026-10-27", "openingHour": {"openFrom": "08:00", "openUntil": "22:00"}},
+        {"date": "2026-10-28", "openingHour": {"openFrom": "08:00", "openUntil": "00:00"}},
+        {"date": "2026-10-29", "openingHour": None},
+    ],
+    "geoLocation": {"latitude": 52.09, "longitude": 5.12},
+    "phone": "030-2345678",
+    "storeType": "AH",
+    "services": [{"code": "PICKUP"}, {"code": "SELFSERVICE"}],
+}}}
+
+# GraphQL bargainItems, as in appie-go koopjes_test.go; the second one is a product we often buy.
+BARGAINS = {"data": {"bargainItems": [
+    {"product": {"id": 12345, "title": "AH Roodbaarsfilet", "brand": "AH", "salesUnitSize": "ca. 200 g"},
+     "categoryTitle": "Vis",
+     "markdown": {"markdownType": "PERCENTAGE", "markdownExpirationDate": "2026-10-28", "markdownPercentage": 35.0},
+     "stock": 3, "bargainPrice": {"priceWas": "5.99", "priceNow": "3.89"}},
+    {"product": {"id": 111, "title": "AH Roomboter", "brand": "AH", "salesUnitSize": "250 g"},
+     "categoryTitle": "Zuivel",
+     "markdown": {"markdownType": "PERCENTAGE", "markdownExpirationDate": "2026-10-27", "markdownPercentage": 35.0},
+     "stock": 1, "bargainPrice": {"priceWas": "3.29", "priceNow": "2.14"}},
+]}}
+
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(

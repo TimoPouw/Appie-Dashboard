@@ -27,6 +27,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieCo
         "favorites": [asdict(f) for f in data.favorites.data or []],
         "list_cost": asdict(data.list_cost.data) if data.list_cost.data else None,
         "dont_forget": [asdict(s) for s in data.dont_forget.data or []],
+        # The store address says roughly where the member lives.
+        "store": async_redact_data(asdict(data.store.data), TO_REDACT) if data.store.data else None,
+        "bargains": [asdict(b) for b in data.bargains.data or []],
         "receipts": {
             "count": len(receipts.receipts),
             "month_total": receipts.month_total,

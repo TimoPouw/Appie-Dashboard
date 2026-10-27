@@ -104,6 +104,34 @@ TOTAL_PRICE_QUERY = """query FetchTotalPrice($products: [PriceLineItem!]!) {
   }
 }"""
 
+# appie-go doc/albertheijn_api.md, "GetFavoriteStore".
+FAVORITE_STORE_QUERY = """query GetFavoriteStore {
+  storesFavouriteStore {
+    __typename
+    ...StoresFragment
+  }
+}
+fragment GeolocationFragment on GeoLocation { __typename latitude longitude }
+fragment StoresFragment on Stores {
+  __typename id
+  address { __typename street houseNumber houseNumberExtra postalCode city countryCode }
+  openingDays { __typename date openingHour { __typename openFrom openUntil } }
+  geoLocation { __typename ...GeolocationFragment }
+  phone storeType
+  services { __typename code }
+}"""
+
+# appie-go koopjes.go, bargainItemsQuery.
+BARGAINS_QUERY = """query BargainItems($storeId: String!) {
+  bargainItems(storeId: $storeId) {
+    product { id title brand salesUnitSize }
+    categoryTitle
+    markdown { markdownType markdownExpirationDate markdownPercentage }
+    stock
+    bargainPrice { priceWas priceNow }
+  }
+}"""
+
 
 class AppieError(Exception):
     """API call failed."""
@@ -332,3 +360,17 @@ class AppieClient:
             "limit": limit,
         }
         return await self._request("POST", "/mobile-services/v2/recommendations/dontforgetlane", body)
+
+    # store
+
+    async def get_favorite_store(self) -> dict:
+        """The member's own store: GraphQL GetFavoriteStore. (verified)"""
+        return await self._graphql(FAVORITE_STORE_QUERY, {})
+
+    async def get_bargains(self, store_id: int) -> dict:
+        """Last-chance markdowns ("koopjes") in a store: GraphQL bargainItems. (verified)
+
+        Query and variables as in appie-go koopjes.go (GetBargains); the store id
+        is passed as a string there, so here too.
+        """
+        return await self._graphql(BARGAINS_QUERY, {"storeId": str(store_id)})

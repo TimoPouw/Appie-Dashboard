@@ -16,12 +16,14 @@ from homeassistant.util import dt as dt_util
 
 from .api import AppieAuthError, AppieClient, AppieError
 from .const import (
+    BARGAINS_INTERVAL,
     BONUS_INTERVAL,
     DONT_FORGET_COOLDOWN,
     DONT_FORGET_INTERVAL,
     CONF_FAVORITES_COUNT,
     CONF_FAVORITES_DAYS,
     DOMAIN,
+    EVENT_BARGAIN_FAVORITE,
     FAVORITES_COUNT,
     FAVORITES_DAYS,
     FAVORITES_INTERVAL,
@@ -30,16 +32,19 @@ from .const import (
     LIST_INTERVAL,
     RECEIPTS_INTERVAL,
     RECEIPTS_PAGE_SIZE,
+    STORE_INTERVAL,
 )
 from .models import (
     SOURCE_PERSONAL,
     SOURCE_PREVIOUS,
+    Bargain,
     BonusOffer,
     Favorite,
     ListCost,
     ListItem,
     Receipt,
     ReceiptDetail,
+    Store as AhStore,
     Suggestion,
     bonus_period,
     build_favorites,
@@ -48,11 +53,13 @@ from .models import (
     open_products,
     parse_total_price,
     month_total,
+    parse_bargains,
     parse_bonus_section,
     parse_dont_forget,
     parse_list,
     parse_receipt_detail,
     parse_receipts,
+    parse_store,
     rank_purchases,
     receipt_lines,
     relevant_bonus,
@@ -75,6 +82,8 @@ class AppieData:
     favorites: FavoritesCoordinator
     list_cost: ListCostCoordinator
     dont_forget: DontForgetCoordinator
+    store: StoreCoordinator
+    bargains: BargainsCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -333,3 +342,80 @@ class DontForgetCoordinator(_ListDrivenCoordinator[list[Suggestion]]):
         on_list = {i.product_id for i in items if i.product_id}
         return [s for s in parse_dont_forget(await self.client.get_dont_forget(basket) or {})
                 if s.product_id not in on_list]
+
+
+class StoreCoordinator(_AppieCoordinator[AhStore | None]):
+    """The favorite store with its opening hours; None if none is set."""
+
+    def __init__(self, hass, entry, client) -> None:
+        super().__init__(hass, entry, client, "winkel", STORE_INTERVAL)
+
+    async def _fetch(self) -> AhStore | None:
+        return parse_store(await self.client.get_favorite_store() or {})
+
+
+class BargainsCoordinator(_AppieCoordinator[list[Bargain]]):
+    """Koopjes in the favorite store, polled only while it is open.
+
+    Fires appie_koopje_favoriet once per koopje of a product from "vaak
+    gekocht"; which ones fired is kept in storage so a restart doesn't repeat.
+    """
+
+    STORAGE_VERSION = 1
+
+    def __init__(self, hass, entry, client, store: StoreCoordinator, favorites: FavoritesCoordinator) -> None:
+        super().__init__(hass, entry, client, "koopjes", BARGAINS_INTERVAL)
+        self._store_coordinator = store
+        self.favorites = favorites
+        self._fired_store: Store[dict] = Store(hass, self.STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.koopjes")
+        self._fired: set[str] | None = None
+
+    def favorite_ids(self) -> set[int]:
+        # Assumes bargainItems' product.id is the webshop id, as Product.id is in
+        # the other GraphQL queries; appie-go does not say so explicitly.
+        return {f.product_id for f in self.favorites.data or [] if f.product_id}
+
+    async def _fetch(self) -> list[Bargain]:
+        store = self._store_coordinator.data
+        if store is None:
+            return []
+        if not store.is_open(dt_util.now()) and self.data is not None:
+            # Closed: nothing changes on the shelves, keep what we had.
+            return self.data
+        bargains = parse_bargains(await self.client.get_bargains(store.id) or {})
+        await self._announce(bargains)
+        return bargains
+
+    def favorites_changed(self) -> None:
+        """The ranking changed (or arrived after startup): check the koopjes we have."""
+        if self.data:
+            self.hass.async_create_task(self._announce(self.data))
+
+    async def _announce(self, bargains: list[Bargain]) -> None:
+        if self._fired is None:
+            self._fired = set(((await self._fired_store.async_load()) or {}).get("fired", []))
+        favorites = self.favorite_ids()
+        store = self._store_coordinator.data
+        new = [b for b in bargains if b.product_id in favorites and b.key not in self._fired]
+        for bargain in new:
+            self.hass.bus.async_fire(
+                EVENT_BARGAIN_FAVORITE,
+                {
+                    "product_id": bargain.product_id,
+                    "title": bargain.title,
+                    "size": bargain.size,
+                    "category": bargain.category,
+                    "markdown_type": bargain.markdown_type,
+                    "expires": bargain.expires,
+                    "price": bargain.price,
+                    "price_was": bargain.price_was,
+                    "store_id": store.id if store else None,
+                },
+            )
+            self._fired.add(bargain.key)
+        # Forget markdowns that have expired; keeps the stored set small.
+        today = dt_util.now().date().isoformat()
+        expired = {k for k in self._fired if k.split(":", 1)[1] not in ("None", "") and k.split(":", 1)[1] < today}
+        if new or expired:
+            self._fired -= expired
+            await self._fired_store.async_save({"fired": sorted(self._fired)})

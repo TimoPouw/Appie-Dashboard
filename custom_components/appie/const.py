@@ -32,6 +32,10 @@ LIST_COST_COOLDOWN = 60
 # "Vergeet niet": at most once per 15 minutes after a list change, else every 6 h.
 DONT_FORGET_INTERVAL = timedelta(hours=6)
 DONT_FORGET_COOLDOWN = 15 * 60
+# Opening hours barely change; koopjes change during the day, only while open.
+STORE_INTERVAL = timedelta(hours=12)
+BARGAINS_INTERVAL = timedelta(minutes=30)
+EVENT_BARGAIN_FAVORITE = "appie_koopje_favoriet"
 
 # How many receipts to fetch per update (covers well over a month).
 RECEIPTS_PAGE_SIZE = 50

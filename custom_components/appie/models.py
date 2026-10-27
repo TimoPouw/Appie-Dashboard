@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field, replace
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 ORIGIN_PRODUCT = "PRD"
@@ -187,6 +187,156 @@ def parse_dont_forget(raw: dict) -> list[Suggestion]:
             )
         )
     return suggestions
+
+
+# --- store and koopjes -----------------------------------------------------------
+
+DAY_NAMES = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+
+
+@dataclass
+class OpeningDay:
+    day: date
+    open_from: str | None = None  # "08:00"; None when closed
+    open_until: str | None = None
+
+    def window(self, tz: tzinfo | None = None) -> tuple[datetime, datetime] | None:
+        """Opening and closing moment; closing at "00:00" means midnight."""
+        if not self.open_from or not self.open_until:
+            return None
+        start = datetime.combine(self.day, _hhmm(self.open_from), tz)
+        end = datetime.combine(self.day, _hhmm(self.open_until), tz)
+        if end <= start:
+            end = datetime.combine(self.day + timedelta(days=1), _hhmm(self.open_until), tz)
+        return start, end
+
+
+def _hhmm(text: str) -> time:
+    hours, minutes = (int(part) for part in text.split(":")[:2])
+    return time(0, 0) if hours >= 24 else time(hours, minutes)
+
+
+@dataclass
+class Store:
+    """The member's favorite AH store (GetFavoriteStore)."""
+
+    id: int
+    address: str
+    store_type: str | None = None
+    opening_days: list[OpeningDay] = field(default_factory=list)
+    services: list[str] = field(default_factory=list)
+
+    def today(self, now: datetime) -> OpeningDay | None:
+        return next((d for d in self.opening_days if d.day == now.date()), None)
+
+    def is_open(self, now: datetime) -> bool:
+        for day in self.opening_days:
+            window = day.window(now.tzinfo)
+            if window and window[0] <= now < window[1]:
+                return True
+        return False
+
+    def closing_time(self, now: datetime) -> str | None:
+        """Today's closing time while the store is still to open or open today."""
+        today = self.today(now)
+        window = today.window(now.tzinfo) if today else None
+        if window is None or now >= window[1]:
+            return None
+        return today.open_until
+
+    def upcoming(self, now: datetime) -> list[dict]:
+        return [
+            {
+                "datum": d.day.isoformat(),
+                "dag": DAY_NAMES[d.day.weekday()],
+                "open": d.open_from,
+                "dicht": d.open_until,
+            }
+            for d in sorted(self.opening_days, key=lambda d: d.day)
+            if d.day >= now.date()
+        ]
+
+
+def parse_store(raw: dict) -> Store | None:
+    """Parse the GraphQL storesFavouriteStore response; None without a favorite.
+
+    A day without openingHour is taken as closed (appie-go only shows open days).
+    """
+    store = (raw.get("data") or {}).get("storesFavouriteStore")
+    if not store or not store.get("id"):
+        return None
+    addr = store.get("address") or {}
+    street = " ".join(
+        str(part) for part in (addr.get("street"), addr.get("houseNumber"), addr.get("houseNumberExtra")) if part
+    )
+    town = " ".join(str(part) for part in (addr.get("postalCode"), addr.get("city")) if part)
+    days = []
+    for row in store.get("openingDays") or []:
+        try:
+            day = date.fromisoformat(row.get("date") or "")
+        except ValueError:
+            continue
+        hours = row.get("openingHour") or {}
+        days.append(OpeningDay(day, hours.get("openFrom") or None, hours.get("openUntil") or None))
+    return Store(
+        id=int(store["id"]),
+        address=", ".join(part for part in (street, town) if part),
+        store_type=store.get("storeType"),
+        opening_days=days,
+        services=[s["code"] for s in store.get("services") or [] if s.get("code")],
+    )
+
+
+@dataclass
+class Bargain:
+    """A last-chance markdown ("koopje") in the store."""
+
+    product_id: int
+    title: str
+    size: str | None = None
+    category: str | None = None
+    markdown_type: str | None = None
+    expires: str | None = None
+    price: float | None = None
+    price_was: float | None = None
+    percentage: float | None = None
+
+    @property
+    def key(self) -> str:
+        """One markdown of one product; a new markdown later is a new koopje."""
+        return f"{self.product_id}:{self.expires}"
+
+
+def _money(value: Any) -> float | None:
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_bargains(raw: dict) -> list[Bargain]:
+    """Parse the GraphQL bargainItems response (koopjes.go)."""
+    bargains: list[Bargain] = []
+    for row in (raw.get("data") or {}).get("bargainItems") or []:
+        product = row.get("product") or {}
+        if not product.get("id"):
+            continue
+        markdown = row.get("markdown") or {}
+        price = row.get("bargainPrice") or {}
+        bargains.append(
+            Bargain(
+                product_id=int(product["id"]),
+                title=product.get("title") or "?",
+                size=product.get("salesUnitSize"),
+                category=row.get("categoryTitle"),
+                markdown_type=markdown.get("markdownType"),
+                expires=markdown.get("markdownExpirationDate"),
+                price=_money(price.get("priceNow")),
+                price_was=_money(price.get("priceWas")),
+                percentage=markdown.get("markdownPercentage"),
+            )
+        )
+    return bargains
 
 
 # --- bonus -------------------------------------------------------------------
