@@ -272,8 +272,14 @@ def parse_store(raw: dict) -> Store | None:
         str(part) for part in (addr.get("street"), addr.get("houseNumber"), addr.get("houseNumberExtra")) if part
     )
     town = " ".join(str(part) for part in (addr.get("postalCode"), addr.get("city")) if part)
-    days = []
+    # AH sends the opening days grouped per week: [[mon..sun], [mon..sun]].
+    rows = []
     for row in store.get("openingDays") or []:
+        rows.extend(row if isinstance(row, list) else [row])
+    days = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
         try:
             day = date.fromisoformat(row.get("date") or "")
         except ValueError:
@@ -346,7 +352,7 @@ def parse_bargains(raw: dict) -> list[Bargain]:
 
 @dataclass
 class FavoriteList:
-    """A favorite list ("lijstje") from lists/v3."""
+    """A favorite list ("lijstje") from FetchFavoriteLists."""
 
     id: str
     naam: str
@@ -354,21 +360,21 @@ class FavoriteList:
     image: str | None = None
 
 
-def parse_favorite_lists(raw: list | None) -> list[FavoriteList]:
-    lists = []
-    for row in raw or []:
-        if not row.get("id"):
-            continue
-        images = [img for group in row.get("productImages") or [] for img in group or []]
-        lists.append(
-            FavoriteList(
-                id=row["id"],
-                naam=row.get("description") or "?",
-                aantal=int(row.get("itemCount") or 0),
-                image=pick_image(images, min_width=80),
-            )
+def parse_favorite_lists(raw: dict | None) -> list[FavoriteList]:
+    """Parse the GraphQL favoriteListV2 response of FetchFavoriteLists."""
+    found = ((raw or {}).get("data") or {}).get("favoriteListV2") or []
+    if isinstance(found, dict):
+        found = [found]
+    return [
+        FavoriteList(
+            id=row["id"],
+            naam=row.get("description") or "?",
+            aantal=int(row.get("totalSize") or 0),
+            image=row.get("imageUrl") or None,
         )
-    return lists
+        for row in found
+        if row.get("id")
+    ]
 
 
 def find_favorite_list(lists: list[FavoriteList], wanted: str) -> FavoriteList | None:

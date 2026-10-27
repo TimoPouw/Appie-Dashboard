@@ -52,12 +52,14 @@ DONT_FORGET = {
 STORE = {"data": {"storesFavouriteStore": {
     "id": 1527,
     "address": {"street": "Nachtegaalstraat", "houseNumber": 48, "postalCode": "3581AD", "city": "Utrecht"},
-    "openingDays": [
+    # Grouped per week, as AH sends it (seen on a live account).
+    "openingDays": [[
         {"date": "2026-10-26", "openingHour": {"openFrom": "08:00", "openUntil": "22:00"}},
         {"date": "2026-10-27", "openingHour": {"openFrom": "08:00", "openUntil": "22:00"}},
         {"date": "2026-10-28", "openingHour": {"openFrom": "08:00", "openUntil": "00:00"}},
+    ], [
         {"date": "2026-10-29", "openingHour": None},
-    ],
+    ]],
     "geoLocation": {"latitude": 52.09, "longitude": 5.12},
     "phone": "030-2345678",
     "storeType": "AH",
@@ -119,13 +121,13 @@ BONUS_BOX = {"data": {
     ],
 }}
 
-# GET /mobile-services/lists/v3/lists, from appie-go's API doc.
-FAVORITE_LISTS = [
-    {"id": "305e6a50-a970-457b-8831-409f572832d4", "description": "Weekboodschappen", "itemCount": 3,
-     "hasFavoriteProduct": False,
-     "productImages": [[{"width": 80, "height": 80, "url": "https://img.invalid/lijst"}]]},
-    {"id": "aaaa0000-0000-0000-0000-000000000001", "description": "Feestje", "itemCount": 0, "productImages": []},
-]
+# GraphQL FetchFavoriteLists, shaped like appie-go's API doc.
+FAVORITE_LISTS = {"data": {"favoriteListV2": [
+    {"__typename": "FavoriteListV2", "id": "305e6a50-a970-457b-8831-409f572832d4",
+     "description": "Weekboodschappen", "totalSize": 3, "imageUrl": "https://img.invalid/lijst"},
+    {"__typename": "FavoriteListV2", "id": "aaaa0000-0000-0000-0000-000000000001",
+     "description": "Feestje", "totalSize": 0, "imageUrl": None},
+]}}
 
 # GraphQL favoriteListV2 with items, as queried in appie-go shoppinglist.go.
 FAVORITE_LIST_ITEMS = {"data": {"favoriteListV2": [{

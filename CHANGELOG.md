@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+Eerste gewone release van deze fork: alles uit 0.3.0-beta.1 (zie hieronder), plus:
+
+### Opgelost
+
+- **Winkel en Winkel open waren niet beschikbaar**: AH stuurt de openingstijden per week gegroepeerd, niet als één lijst. Nu worden ze goed gelezen.
+- **Favoriete lijsten was niet beschikbaar**: het REST-endpoint `lists/v3` geeft bij AH een 404. Nu wordt de GraphQL-query `FetchFavoriteLists` gebruikt.
+- Het icoon van Vaak gekocht bestond niet.
+
+### Nieuw
+
+- Dashboard: een eerste tabblad **Overzicht** met wat er in je Bonus Box zit en je hele Vaak gekocht-ranglijst.
+
 ## 0.3.0-beta.1
 
 Fork van [eejeha/Appie-Dashboard](https://github.com/eejeha/Appie-Dashboard). Alle bestaande entiteiten en attributen blijven gelijk; er komen alleen dingen bij.
