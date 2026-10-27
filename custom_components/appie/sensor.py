@@ -1,4 +1,4 @@
-"""Bonus and receipt sensors."""
+"""Bonus, receipt and "vaak gekocht" sensors."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .coordinator import AppieConfigEntry, BonusCoordinator, ReceiptsCoordinator
+from .coordinator import AppieConfigEntry, BonusCoordinator, FavoritesCoordinator, ReceiptsCoordinator
 from .entity import device_info
-from .models import SOURCE_PERSONAL
+from .models import SOURCE_PERSONAL, favorite_attributes
 
 RECENT_RECEIPTS = 10
 
@@ -29,6 +29,7 @@ async def async_setup_entry(
             BonusSensor(entry, data.bonus),
             LatestReceiptSensor(entry, data.receipts),
             MonthSpendSensor(entry, data.receipts),
+            FavoritesSensor(entry, data.favorites),
         ]
     )
 
@@ -125,3 +126,33 @@ class MonthSpendSensor(_Base, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"receipts": self.coordinator.data.month_count}
+
+
+class FavoritesSensor(_Base, SensorEntity):
+    """The whole "vaak gekocht" ranking in one entity, for dashboards."""
+
+    _attr_icon = "mdi:star-shopping"
+    _attr_native_unit_of_measurement = "producten"
+    _unrecorded_attributes = frozenset({"producten"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: FavoritesCoordinator) -> None:
+        super().__init__(entry, coordinator, "vaak_gekocht", "Vaak gekocht")
+        self._list = entry.runtime_data.shopping_list
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # on_list / quantity_on_list follow the shopping list.
+        self.async_on_remove(self._list.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        items = self._list.data or []
+        return {
+            "producten": [
+                {**favorite_attributes(f, items), "entity_picture": f.image} for f in self.coordinator.data or []
+            ]
+        }

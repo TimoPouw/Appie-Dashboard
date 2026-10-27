@@ -30,5 +30,10 @@ FAVORITES_INTERVAL = timedelta(hours=12)
 RECEIPTS_PAGE_SIZE = 50
 
 # "Vaak gekocht" buttons: how many, counted over how many days of receipts.
+# Defaults; both can be changed in the options.
+CONF_FAVORITES_COUNT = "favorites_count"
+CONF_FAVORITES_DAYS = "favorites_days"
 FAVORITES_COUNT = 10
 FAVORITES_DAYS = 120
+FAVORITES_COUNT_RANGE = (10, 50)
+FAVORITES_DAYS_RANGE = (30, 365)

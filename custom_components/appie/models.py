@@ -405,3 +405,84 @@ def build_favorites(
         if len(favorites) == limit:
             break
     return favorites
+
+
+def favorite_attributes(favorite: Favorite, list_items: list[ListItem]) -> dict[str, Any]:
+    """The attributes a "vaak gekocht" button shows, matched against the list."""
+    on_list = next((i for i in list_items if i.key == favorite.as_list_item().key), None)
+    return {
+        "rank": favorite.rank,
+        "title": favorite.title,
+        "times_bought": favorite.times,
+        "product_id": favorite.product_id,
+        "bonus": favorite.bonus_mechanism if favorite.is_bonus else None,
+        "on_list": on_list is not None and not on_list.checked,
+        "quantity_on_list": on_list.quantity if on_list and not on_list.checked else 0,
+    }
+
+
+# --- product search ------------------------------------------------------------
+
+
+@dataclass
+class SearchResult:
+    """A product from the REST search, in the shape the services return."""
+
+    product_id: int
+    title: str
+    size: str | None = None
+    price: float | None = None
+    image: str | None = None
+    is_bonus: bool = False
+    bonus_mechanism: str | None = None
+    previously_bought: bool = False
+
+    def as_dict(self) -> dict:
+        data = asdict(self)
+        data.pop("previously_bought")
+        return data
+
+
+def parse_search(raw: dict | list | None) -> list[SearchResult]:
+    """Parse GET /product/search/v2 (or a bare product list)."""
+    rows = raw.get("products") if isinstance(raw, dict) else raw
+    results: list[SearchResult] = []
+    for p in rows or []:
+        if not p.get("webshopId"):
+            continue
+        results.append(
+            SearchResult(
+                product_id=p["webshopId"],
+                title=p.get("title") or "?",
+                size=p.get("salesUnitSize"),
+                price=p.get("currentPrice") or p.get("priceBeforeBonus"),
+                image=pick_image(p.get("images")),
+                is_bonus=bool(p.get("isBonus")),
+                bonus_mechanism=p.get("bonusMechanism") if p.get("isBonus") else None,
+                previously_bought=bool(p.get("isPreviouslyBought")),
+            )
+        )
+    return results
+
+
+MATCH_FAVORITE = "vaak_gekocht"
+MATCH_PREVIOUS = "eerder_gekocht"
+MATCH_SEARCH = "beste_zoekresultaat"
+
+
+def best_match(results: list[SearchResult], favorites: list[Favorite]) -> tuple[SearchResult, str] | None:
+    """Pick what to put on the list for a search term.
+
+    Prefer the most bought product among the results, then something bought
+    before, then simply the most relevant result.
+    """
+    if not results:
+        return None
+    rank = {f.product_id: f.rank for f in favorites if f.product_id}
+    favorite = min((r for r in results if r.product_id in rank), key=lambda r: rank[r.product_id], default=None)
+    if favorite:
+        return favorite, MATCH_FAVORITE
+    previous = next((r for r in results if r.previously_bought), None)
+    if previous:
+        return previous, MATCH_PREVIOUS
+    return results[0], MATCH_SEARCH

@@ -1,4 +1,4 @@
-"""Diagnostics with the tokens left out."""
+"""Diagnostics with the tokens and personal details left out."""
 
 from __future__ import annotations
 
@@ -8,10 +8,12 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
+from .api import REDACT_KEYS
 from .const import CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN
 from .coordinator import AppieConfigEntry
 
-TO_REDACT = {CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN}
+# Tokens, plus member and address fields wherever they turn up in new data.
+TO_REDACT = {CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN, *REDACT_KEYS} - {"name"}
 
 
 async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieConfigEntry) -> dict[str, Any]:
@@ -19,6 +21,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieCo
     receipts = data.receipts.data
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
+        "options": dict(entry.options),
         "list": [asdict(i) for i in data.shopping_list.data or []],
         "bonus": asdict(data.bonus.data) if data.bonus.data else None,
         "favorites": [asdict(f) for f in data.favorites.data or []],

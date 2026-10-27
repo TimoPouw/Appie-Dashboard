@@ -8,11 +8,25 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlowWithReload
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .api import AppieAuthError, AppieError, exchange_code, extract_code, member_id
-from .const import CONF_ACCESS_TOKEN, CONF_EXPIRES_AT, CONF_REFRESH_TOKEN, DOMAIN, LOGIN_URL
+from .const import (
+    CONF_ACCESS_TOKEN,
+    CONF_EXPIRES_AT,
+    CONF_FAVORITES_COUNT,
+    CONF_FAVORITES_DAYS,
+    CONF_REFRESH_TOKEN,
+    DOMAIN,
+    FAVORITES_COUNT,
+    FAVORITES_COUNT_RANGE,
+    FAVORITES_DAYS,
+    FAVORITES_DAYS_RANGE,
+    LOGIN_URL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,6 +38,11 @@ class AppieConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the login."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> AppieOptionsFlow:
+        return AppieOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -74,6 +93,37 @@ class AppieConfigFlow(ConfigFlow, domain=DOMAIN):
         except AppieError:
             _LOGGER.exception("login failed")
             return None, "cannot_connect"
+
+
+def _number(low: int, high: int, unit: str) -> NumberSelector:
+    return NumberSelector(
+        NumberSelectorConfig(min=low, max=high, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement=unit)
+    )
+
+
+class AppieOptionsFlow(OptionsFlowWithReload):
+    """How many "vaak gekocht" products, counted over how many days.
+
+    Saving reloads the entry, so changes apply without a restart.
+    """
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(
+                data={key: int(value) for key, value in user_input.items()}
+            )
+        options = self.config_entry.options
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_FAVORITES_COUNT, default=options.get(CONF_FAVORITES_COUNT, FAVORITES_COUNT)
+                ): _number(*FAVORITES_COUNT_RANGE, "producten"),
+                vol.Required(
+                    CONF_FAVORITES_DAYS, default=options.get(CONF_FAVORITES_DAYS, FAVORITES_DAYS)
+                ): _number(*FAVORITES_DAYS_RANGE, "dagen"),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
 
 
 def _entry_data(tokens: dict[str, Any]) -> dict[str, Any]:

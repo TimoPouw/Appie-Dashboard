@@ -1,7 +1,9 @@
 """Async client for the (unofficial) Albert Heijn mobile API.
 
 Endpoints and headers follow gwillem/appie-go (AGPL-3.0) and were checked
-against a live account.
+against a live account. Calls added later are marked in their docstring:
+(verified) when endpoint and payload are taken literally from appie-go,
+(inferred) when they rest on an assumption, which is then explained.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Any
+from urllib.parse import urlencode
 
 import aiohttp
 
@@ -44,6 +47,52 @@ RECEIPT_DETAIL_QUERY = """query FetchReceipt($id: String!) {
     payments { method amount { amount } }
   }
 }"""
+
+
+# Left out of debug logging: credentials and anything that identifies the member.
+REDACT_KEYS = frozenset(
+    {
+        "access_token",
+        "refresh_token",
+        "accessToken",
+        "refreshToken",
+        "id_token",
+        "code",
+        "address",
+        "addressInvoice",
+        "street",
+        "houseNumber",
+        "houseNumberExtra",
+        "postalCode",
+        "zipCode",
+        "zipCodeExtra",
+        "geoLocation",
+        "emailAddress",
+        "phoneNumber",
+        "dateOfBirth",
+        "name",
+        "cards",
+        "memberId",
+        "analytics",
+    }
+)
+# Product and store names are fine to log; "name" is only personal on a member.
+_NAMED_THINGS = frozenset({"products", "product", "productCards", "posReceiptDetails", "result"})
+_LOG_LIMIT = 2000
+
+
+def redact(data: Any, parent: str | None = None) -> Any:
+    """Copy of an API response that is safe to put in a debug log."""
+    if isinstance(data, dict):
+        return {
+            key: "**REDACTED**"
+            if key in REDACT_KEYS and not (key == "name" and parent in _NAMED_THINGS)
+            else redact(value, key)
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [redact(value, parent) for value in data]
+    return data
 
 
 class AppieError(Exception):
@@ -168,8 +217,12 @@ class AppieClient:
                         text = await resp.text()
                         raise AppieError(f"{method} {path}: HTTP {resp.status} {text[:200]}")
                     text = await resp.text()
-                    _LOGGER.debug("%s %s -> %s", method, path, resp.status)
-                    return await resp.json(content_type=None) if text else None
+                    data = await resp.json(content_type=None) if text else None
+                    if _LOGGER.isEnabledFor(logging.DEBUG):
+                        _LOGGER.debug(
+                            "%s %s -> %s %s", method, path.split("?")[0], resp.status, str(redact(data))[:_LOG_LIMIT]
+                        )
+                    return data
             except asyncio.TimeoutError as err:
                 # AH occasionally stalls a single request; one retry is enough.
                 if attempt == 2:
@@ -234,3 +287,13 @@ class AppieClient:
         if isinstance(rows, dict):
             rows = rows.get("products") or []
         return {p["webshopId"]: p for p in rows or [] if p.get("webshopId")}
+
+    async def search_products(self, query: str, size: int = 10) -> dict:
+        """Product search by text. (verified)
+
+        GET /mobile-services/product/search/v2?query=..&page=0&size=..&sortOn=RELEVANCE,
+        as in appie-go products.go (SearchProductsFiltered). The REST search is the
+        one that returns bonusMechanism; sponsored products may be mixed in.
+        """
+        params = urlencode({"query": query, "page": 0, "size": size, "sortOn": "RELEVANCE"})
+        return await self._request("GET", f"/mobile-services/product/search/v2?{params}")

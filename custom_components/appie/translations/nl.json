@@ -26,5 +26,55 @@
       "reauth_successful": "Weer ingelogd.",
       "wrong_account": "Dat is een ander AH-account dan eerst."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Albert Heijn-opties",
+        "description": "Vaak gekocht: hoeveel producten je wilt zien, en over hoeveel dagen aan kassabonnen we tellen. Opslaan herlaadt de integratie.",
+        "data": {
+          "favorites_count": "Aantal producten",
+          "favorites_days": "Dagen aan kassabonnen"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "De Albert Heijn-integratie is niet geladen."
+    },
+    "no_product": {
+      "message": "Geen product gevonden voor \"{query}\"."
+    }
+  },
+  "services": {
+    "search": {
+      "name": "Producten zoeken",
+      "description": "Zoekt in het AH-assortiment en geeft de gevonden producten terug.",
+      "fields": {
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Waar je naar zoekt, bijvoorbeeld \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel producten je terug wilt (1 tot 50)."
+        }
+      }
+    },
+    "add_product": {
+      "name": "Product op de lijst zetten",
+      "description": "Zoekt een product en zet de beste match als echt product op je lijst. Wat je vaak koopt gaat voor.",
+      "fields": {
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Wat je op de lijst wilt, bijvoorbeeld \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel stuks (standaard 1)."
+        }
+      }
+    }
   }
 }

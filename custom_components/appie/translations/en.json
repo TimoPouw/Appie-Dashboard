@@ -26,5 +26,55 @@
       "reauth_successful": "Logged in again.",
       "wrong_account": "That is a different AH account than before."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Albert Heijn options",
+        "description": "\"Vaak gekocht\": how many products to show, counted over how many days of receipts. Saving reloads the integration.",
+        "data": {
+          "favorites_count": "Number of products",
+          "favorites_days": "Days of receipts to count"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "The Albert Heijn integration is not loaded."
+    },
+    "no_product": {
+      "message": "No product found for \"{query}\"."
+    }
+  },
+  "services": {
+    "search": {
+      "name": "Search products",
+      "description": "Searches the AH product range and returns the products found.",
+      "fields": {
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to search for, e.g. \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Number",
+          "description": "How many products to return (1 to 50)."
+        }
+      }
+    },
+    "add_product": {
+      "name": "Add product to list",
+      "description": "Searches for a product and puts the best match on the shopping list as a real product. Products you often buy win.",
+      "fields": {
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to add, e.g. \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Quantity",
+          "description": "How many to add (default 1)."
+        }
+      }
+    }
   }
 }

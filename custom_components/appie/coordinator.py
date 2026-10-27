@@ -16,6 +16,8 @@ from homeassistant.util import dt as dt_util
 from .api import AppieAuthError, AppieClient, AppieError
 from .const import (
     BONUS_INTERVAL,
+    CONF_FAVORITES_COUNT,
+    CONF_FAVORITES_DAYS,
     DOMAIN,
     FAVORITES_COUNT,
     FAVORITES_DAYS,
@@ -139,7 +141,10 @@ class BonusCoordinator(_AppieCoordinator[BonusData]):
         if end and dt_util.now().date() > date.fromisoformat(end):
             self.hass.async_create_task(self.async_request_refresh())
             return
-        self.async_set_updated_data(self._merge())
+        # Not async_set_updated_data: that restarts the 6 h timer, and the list
+        # updates every minute, so the bonus would never be fetched again.
+        self.data = self._merge()
+        self.async_update_listeners()
 
 
 @dataclass
@@ -192,20 +197,22 @@ class FavoritesCoordinator(_AppieCoordinator[list[Favorite]]):
     STORAGE_VERSION = 1
     # Fetch at most this many new receipts per update (the first run catches up).
     MAX_NEW_RECEIPTS = 120
-    CANDIDATES = 2 * FAVORITES_COUNT
 
     def __init__(self, hass, entry, client) -> None:
         super().__init__(hass, entry, client, "vaak gekocht", FAVORITES_INTERVAL)
         self._store: Store[dict] = Store(hass, self.STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.receipt_lines")
         self._lines: dict[str, list] | None = None
+        self.count: int = entry.options.get(CONF_FAVORITES_COUNT, FAVORITES_COUNT)
+        self.days: int = entry.options.get(CONF_FAVORITES_DAYS, FAVORITES_DAYS)
 
     async def _fetch(self) -> list[Favorite]:
         if self._lines is None:
             self._lines = ((await self._store.async_load()) or {}).get("lines", {})
         tz = dt_util.get_default_time_zone()
-        since = dt_util.now().date() - timedelta(days=FAVORITES_DAYS)
+        since = dt_util.now().date() - timedelta(days=self.days)
         receipts: list[Receipt] = []
-        for page in range(MAX_RECEIPT_PAGES):
+        # Roughly a page of 50 receipts per month, more for a long window.
+        for page in range(max(MAX_RECEIPT_PAGES, self.days // 30 + 1)):
             batch = parse_receipts(await self.client.get_receipts(page * RECEIPTS_PAGE_SIZE, RECEIPTS_PAGE_SIZE))
             receipts.extend(batch)
             if len(batch) < RECEIPTS_PAGE_SIZE or batch[-1].day(tz) < since:
@@ -220,7 +227,8 @@ class FavoritesCoordinator(_AppieCoordinator[list[Favorite]]):
             await self._store.async_save({"lines": self._lines})
 
         ranked = rank_purchases([self._lines[r.id] for r in recent if r.id in self._lines])
-        candidates = ranked[: self.CANDIDATES]
+        # Twice as many candidates: some till lines map to the same product.
+        candidates = ranked[: 2 * self.count]
         webshop_ids = await self.client.convert_pos_ids([pos_id for pos_id, _, _ in candidates])
         products = await self.client.get_products(list(webshop_ids.values()))
-        return build_favorites(candidates, webshop_ids, products, FAVORITES_COUNT)
+        return build_favorites(candidates, webshop_ids, products, self.count)
