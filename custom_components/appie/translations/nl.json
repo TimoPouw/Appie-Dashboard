@@ -75,6 +75,20 @@
           "description": "Hoeveel stuks (standaard 1)."
         }
       }
+    },
+    "search_recipes": {
+      "name": "Recepten zoeken",
+      "description": "Zoekt in de Allerhande-recepten en geeft de gevonden recepten terug.",
+      "fields": {
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Waar je zin in hebt, bijvoorbeeld \"pasta\"."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel recepten je terug wilt (1 tot 30)."
+        }
+      }
     }
   }
 }

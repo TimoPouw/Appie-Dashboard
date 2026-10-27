@@ -68,6 +68,34 @@ BARGAINS = {"data": {"bargainItems": [
      "stock": 1, "bargainPrice": {"priceWas": "3.29", "priceNow": "2.14"}},
 ]}}
 
+_IMAGES = [{"width": 445, "height": 297, "url": "https://img.invalid/445"},
+           {"width": 890, "height": 594, "url": "https://img.invalid/890"}]
+
+# GraphQL FetchRecommendedRecipes, shaped like appie-go's API doc.
+RECOMMENDED_RECIPES = {"data": {"recommendations": {
+    "recipeRecommendations": [
+        {"id": "12345", "recipe": {"id": 12345, "title": "Pasta carbonara", "time": {"cook": 25},
+                                   "nutriScore": "B", "images": _IMAGES}},
+    ],
+    "bonusRecipes": [
+        {"recipe": {"id": 777, "title": "Traybake met kip", "time": {"cook": 40}, "nutriScore": "A"}},
+        {"recipe": {"id": 12345, "title": "Pasta carbonara", "time": {"cook": 25}, "nutriScore": "B"}},
+    ],
+    "genericRecipeRecommendations": [{"recipe": {"id": 1, "title": "Generiek", "time": {"cook": 10}}}],
+    "servingSize": 2,
+}}}
+
+# GraphQL FetchRecipes (recipeSearchV2), from appie-go's API doc.
+RECIPE_SEARCH = {"data": {"recipeSearchV2": {
+    "correctedSearchTerm": None,
+    "page": {"total": 245, "hasNextPage": True},
+    "result": [
+        {"id": 12345, "title": "Pasta carbonara", "time": {"cook": 25}, "images": _IMAGES, "nutriScore": "B",
+         "tags": [{"key": "cuisine", "value": "Italiaans"}]},
+        {"id": 23456, "title": "Pasta pesto", "time": {"cook": 15}, "nutriScore": "A"},
+    ],
+}}}
+
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(

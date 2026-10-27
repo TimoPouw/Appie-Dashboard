@@ -27,3 +27,18 @@ add_product:
           min: 1
           max: 99
           mode: box
+
+search_recipes:
+  fields:
+    zoekterm:
+      required: true
+      example: pasta
+      selector:
+        text:
+    aantal:
+      default: 7
+      selector:
+        number:
+          min: 1
+          max: 30
+          mode: box

@@ -22,6 +22,7 @@ from .coordinator import (
     ListCoordinator,
     ListCostCoordinator,
     ReceiptsCoordinator,
+    RecipesCoordinator,
     StoreCoordinator,
 )
 from .services import async_setup_services
@@ -69,6 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     dont_forget = DontForgetCoordinator(hass, entry, client, shopping_list)
     store = StoreCoordinator(hass, entry, client)
     bargains = BargainsCoordinator(hass, entry, client, store, favorites)
+    recipes = RecipesCoordinator(hass, entry, client)
 
     # Sequential on purpose: the first call may refresh the token.
     await shopping_list.async_config_entry_first_refresh()
@@ -79,12 +81,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await dont_forget.async_refresh()
     await store.async_refresh()
     await bargains.async_refresh()
+    await recipes.async_refresh()
 
     for follower in (bonus, list_cost, dont_forget):
         entry.async_on_unload(shopping_list.async_add_listener(follower.list_changed))
     entry.async_on_unload(favorites.async_add_listener(bargains.favorites_changed))
     entry.runtime_data = AppieData(
-        client, shopping_list, bonus, receipts, favorites, list_cost, dont_forget, store, bargains
+        client, shopping_list, bonus, receipts, favorites, list_cost, dont_forget, store, bargains, recipes
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.

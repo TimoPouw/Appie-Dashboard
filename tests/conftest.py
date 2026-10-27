@@ -4,7 +4,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from .common import BARGAINS, DONT_FORGET, META, SEARCH, STORE, TOTAL_PRICE
+from .common import (
+    BARGAINS,
+    DONT_FORGET,
+    META,
+    RECIPE_SEARCH,
+    RECOMMENDED_RECIPES,
+    SEARCH,
+    STORE,
+    TOTAL_PRICE,
+)
 from .test_models import DETAIL, LIST, PERSONAL, PREVIOUS, RECEIPTS
 
 
@@ -33,6 +42,8 @@ def api():
         "get_dont_forget": AsyncMock(return_value=DONT_FORGET),
         "get_favorite_store": AsyncMock(return_value=STORE),
         "get_bargains": AsyncMock(return_value=BARGAINS),
+        "get_recommended_recipes": AsyncMock(return_value=RECOMMENDED_RECIPES),
+        "search_recipes": AsyncMock(return_value=RECIPE_SEARCH),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]
     patches.append(patch("custom_components.appie.coordinator.FAVORITES_DAYS", 100_000))

@@ -1,6 +1,8 @@
-"""Services: product search and adding a product to the list by name."""
+"""Services: product search, adding a product by name, recipe search."""
 
 from __future__ import annotations
+
+from dataclasses import asdict
 
 import voluptuous as vol
 
@@ -12,10 +14,11 @@ from homeassistant.helpers import config_validation as cv
 from .api import AppieError
 from .const import DOMAIN
 from .coordinator import AppieConfigEntry
-from .models import best_match, new_product_item, parse_search
+from .models import best_match, new_product_item, parse_recipe_search, parse_search
 
 SERVICE_SEARCH = "search"
 SERVICE_ADD_PRODUCT = "add_product"
+SERVICE_SEARCH_RECIPES = "search_recipes"
 
 ATTR_QUERY = "zoekterm"
 ATTR_COUNT = "aantal"
@@ -33,6 +36,12 @@ ADD_PRODUCT_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
         vol.Optional(ATTR_COUNT, default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
+    }
+)
+RECIPES_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
+        vol.Optional(ATTR_COUNT, default=7): vol.All(vol.Coerce(int), vol.Range(min=1, max=30)),
     }
 )
 
@@ -91,6 +100,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
         await data.shopping_list.async_refresh()
         return {**product.as_dict(), "match": reason, "quantity_on_list": quantity}
 
+    async def search_recipes(call: ServiceCall) -> ServiceResponse:
+        client = _entry(hass).runtime_data.client
+        try:
+            raw = await client.search_recipes(call.data[ATTR_QUERY].strip(), call.data[ATTR_COUNT])
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        recipes, total = parse_recipe_search(raw)
+        return {"recepten": [asdict(r) for r in recipes[: call.data[ATTR_COUNT]]], "totaal": total}
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_SEARCH_RECIPES, search_recipes, schema=RECIPES_SCHEMA, supports_response=SupportsResponse.ONLY
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_SEARCH, search, schema=SEARCH_SCHEMA, supports_response=SupportsResponse.ONLY
     )

@@ -75,6 +75,20 @@
           "description": "How many to add (default 1)."
         }
       }
+    },
+    "search_recipes": {
+      "name": "Search recipes",
+      "description": "Searches Allerhande recipes and returns the recipes found.",
+      "fields": {
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to search for, e.g. \"pasta\"."
+        },
+        "aantal": {
+          "name": "Number",
+          "description": "How many recipes to return (1 to 30)."
+        }
+      }
     }
   }
 }

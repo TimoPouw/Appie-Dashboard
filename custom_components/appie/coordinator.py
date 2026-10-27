@@ -32,6 +32,7 @@ from .const import (
     LIST_INTERVAL,
     RECEIPTS_INTERVAL,
     RECEIPTS_PAGE_SIZE,
+    RECIPES_INTERVAL,
     STORE_INTERVAL,
 )
 from .models import (
@@ -44,6 +45,7 @@ from .models import (
     ListItem,
     Receipt,
     ReceiptDetail,
+    Recipe,
     Store as AhStore,
     Suggestion,
     bonus_period,
@@ -59,6 +61,7 @@ from .models import (
     parse_list,
     parse_receipt_detail,
     parse_receipts,
+    parse_recommended_recipes,
     parse_store,
     rank_purchases,
     receipt_lines,
@@ -84,6 +87,7 @@ class AppieData:
     dont_forget: DontForgetCoordinator
     store: StoreCoordinator
     bargains: BargainsCoordinator
+    recipes: RecipesCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -419,3 +423,13 @@ class BargainsCoordinator(_AppieCoordinator[list[Bargain]]):
         if new or expired:
             self._fired -= expired
             await self._fired_store.async_save({"fired": sorted(self._fired)})
+
+
+class RecipesCoordinator(_AppieCoordinator[list[Recipe]]):
+    """Recipes AH recommends to us, refreshed daily."""
+
+    def __init__(self, hass, entry, client) -> None:
+        super().__init__(hass, entry, client, "recepten", RECIPES_INTERVAL)
+
+    async def _fetch(self) -> list[Recipe]:
+        return parse_recommended_recipes(await self.client.get_recommended_recipes() or {})

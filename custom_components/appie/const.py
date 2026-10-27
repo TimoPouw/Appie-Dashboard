@@ -36,6 +36,7 @@ DONT_FORGET_COOLDOWN = 15 * 60
 STORE_INTERVAL = timedelta(hours=12)
 BARGAINS_INTERVAL = timedelta(minutes=30)
 EVENT_BARGAIN_FAVORITE = "appie_koopje_favoriet"
+RECIPES_INTERVAL = timedelta(hours=24)
 
 # How many receipts to fetch per update (covers well over a month).
 RECEIPTS_PAGE_SIZE = 50

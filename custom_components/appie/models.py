@@ -339,6 +339,63 @@ def parse_bargains(raw: dict) -> list[Bargain]:
     return bargains
 
 
+# --- recipes -----------------------------------------------------------------
+
+
+@dataclass
+class Recipe:
+    """An Allerhande recipe summary."""
+
+    id: int
+    title: str
+    tijd: int | None = None  # cooking time in minutes
+    image: str | None = None
+    nutriscore: str | None = None
+    bonus: bool = False
+
+
+def parse_recipe(raw: dict, bonus: bool = False) -> Recipe | None:
+    if not raw or not raw.get("id"):
+        return None
+    return Recipe(
+        id=int(raw["id"]),
+        title=raw.get("title") or "?",
+        tijd=(raw.get("time") or {}).get("cook"),
+        image=pick_image(raw.get("images"), min_width=400),
+        nutriscore=raw.get("nutriScore"),
+        bonus=bonus,
+    )
+
+
+def parse_recommended_recipes(raw: dict) -> list[Recipe]:
+    """Personal recommendations plus bonus recipes, without duplicates.
+
+    The generic recommendations are only used when there is nothing personal.
+    """
+    lane = (raw.get("data") or {}).get("recommendations") or {}
+    picked = [(r.get("recipe"), False) for r in lane.get("recipeRecommendations") or []]
+    picked += [(r.get("recipe"), True) for r in lane.get("bonusRecipes") or []]
+    if not picked:
+        picked = [(r.get("recipe"), False) for r in lane.get("genericRecipeRecommendations") or []]
+    recipes: dict[int, Recipe] = {}
+    for summary, bonus in picked:
+        recipe = parse_recipe(summary or {}, bonus)
+        if recipe is None:
+            continue
+        if recipe.id in recipes:
+            recipes[recipe.id].bonus |= bonus
+        else:
+            recipes[recipe.id] = recipe
+    return list(recipes.values())
+
+
+def parse_recipe_search(raw: dict) -> tuple[list[Recipe], int]:
+    """Recipes from a recipeSearchV2 response, and the total number found."""
+    search = (raw.get("data") or {}).get("recipeSearchV2") or {}
+    recipes = [r for r in (parse_recipe(row) for row in search.get("result") or []) if r]
+    return recipes, int((search.get("page") or {}).get("total") or len(recipes))
+
+
 # --- bonus -------------------------------------------------------------------
 
 
