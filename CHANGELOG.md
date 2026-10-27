@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0
+## 0.3.0-beta.1
 
 Fork van [eejeha/Appie-Dashboard](https://github.com/eejeha/Appie-Dashboard). Alle bestaande entiteiten en attributen blijven gelijk; er komen alleen dingen bij.
 
@@ -19,6 +19,9 @@ Fork van [eejeha/Appie-Dashboard](https://github.com/eejeha/Appie-Dashboard). Al
 - Opties: aantal Vaak gekocht-knoppen (10 tot 50) en de periode waarover geteld wordt (30 tot 365 dagen). Werkt zonder herstart.
 - `recent` op de laatste kassabon heeft per bon ook `id` en `pdf_url`.
 - Koopjes en de winkel komen in diagnostics, met het adres weggelaten.
+- Kant-en-klaar dashboard (`dashboards/appie.yaml`) met alleen standaardkaarten, en een blueprint voor een melding bij een koopje.
+- Iconen voor alle acties (services).
+- GitHub Actions: hassfest, HACS-controle en tests bij elke push, en automatische releases vanaf een tag.
 
 ### Verbeterd
 

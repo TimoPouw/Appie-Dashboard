@@ -1,0 +1,394 @@
+# Appie-Dashboard: a ready-made dashboard for the Albert Heijn integration.
+# Only built-in Home Assistant cards; no custom cards needed.
+# Paste into a new dashboard (Raw configuration editor), see README "Dashboard".
+title: Albert Heijn
+views:
+  - title: Boodschappen
+    path: boodschappen
+    icon: mdi:cart
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Boodschappenlijst
+            heading_style: title
+            icon: mdi:format-list-checks
+          - type: tile
+            entity: sensor.albert_heijn_lijst_kosten
+            name: Kost je lijst
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_bonus_voor_ons
+            name: Bonus op je lijst
+            state_content: on_list
+            grid_options:
+              columns: 6
+          - type: todo-list
+            entity: todo.albert_heijn_boodschappenlijst
+            hide_completed: false
+      - type: grid
+        cards:
+          - type: heading
+            heading: Vaak gekocht
+            heading_style: title
+            icon: mdi:star-shopping
+          - type: markdown
+            content: |
+              Tik op een product om het op je lijst te zetten.
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_1
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_1
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_2
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_2
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_3
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_3
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_4
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_4
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_5
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_5
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_6
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_6
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_7
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_7
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_8
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_8
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_9
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_9
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: button.albert_heijn_vaak_gekocht_10
+            show_entity_picture: true
+            hide_state: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.albert_heijn_vaak_gekocht_10
+            grid_options:
+              columns: 6
+      - type: grid
+        cards:
+          - type: heading
+            heading: Vergeet niet
+            heading_style: title
+            icon: mdi:lightbulb-on-outline
+          - type: markdown
+            content: |
+              {% set items = state_attr('sensor.albert_heijn_vergeet_niet', 'suggesties') or [] %}
+              {% if items %}
+              <table>
+              {% for s in items %}
+              <tr><td>{% if s.image %}<img src="{{ s.image }}" width="40">{% endif %}</td>
+              <td><b>{{ s.title }}</b><br>{{ s.size or '' }}{% if s.is_bonus %} · <font color="#e8590c">{{ s.bonus_mechanism }}</font>{% endif %}</td>
+              <td>{% if s.price is not none %}€ {{ '%.2f' | format(s.price) }}{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+              {% else %}
+              Geen suggesties. Zet eerst wat producten op je lijst.
+              {% endif %}
+          - type: heading
+            heading: Favoriete lijsten
+            heading_style: subtitle
+            icon: mdi:playlist-star
+          - type: markdown
+            content: |
+              {% set lists = state_attr('sensor.albert_heijn_favoriete_lijsten', 'lijsten') or [] %}
+              {% for l in lists %}
+              - **{{ l.naam }}** ({{ l.aantal }} producten)
+              {% else %}
+              Je hebt nog geen favoriete lijsten in de app.
+              {% endfor %}
+
+              Zet een hele lijst op je boodschappenlijst met de actie
+              *Favoriete lijst naar boodschappenlijst* (`appie.favorite_list_to_list`).
+
+  - title: Bonus
+    path: bonus
+    icon: mdi:sale
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Bonus voor ons
+            heading_style: title
+            icon: mdi:sale
+          - type: tile
+            entity: sensor.albert_heijn_bonus_voor_ons
+            name: Aanbiedingen
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_bonus_voor_ons
+            name: Op je lijst
+            state_content: on_list
+            icon: mdi:cart-check
+            grid_options:
+              columns: 6
+          - type: markdown
+            content: |
+              {% set offers = state_attr('sensor.albert_heijn_bonus_voor_ons', 'offers') or [] %}
+              {% set end = state_attr('sensor.albert_heijn_bonus_voor_ons', 'period_end') %}
+              {% if end %}*Geldig t/m {{ as_timestamp(end) | timestamp_custom('%d-%m', true) }}*{% endif %}
+              <table>
+              {% for o in offers %}
+              <tr><td>{% if o.image %}<img src="{{ o.image }}" width="44">{% endif %}</td>
+              <td>{% if o.on_list %}🛒 {% endif %}<b>{{ o.title }}</b><br>
+              <font color="#e8590c">{{ o.mechanism }}</font>{% if o.source == 'persoonlijk' %} · persoonlijk{% endif %}</td>
+              <td>{% if o.price is not none %}€ {{ '%.2f' | format(o.price) }}{% endif %}{% if o.price_was %}<br><s>€ {{ '%.2f' | format(o.price_was) }}</s>{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+      - type: grid
+        cards:
+          - type: heading
+            heading: Bonus Box
+            heading_style: title
+            icon: mdi:gift-outline
+          - type: tile
+            entity: sensor.albert_heijn_bonus_box
+            name: In je Bonus Box
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_bonus_box
+            name: Geactiveerd
+            state_content: geactiveerd
+            icon: mdi:check-decagram
+            grid_options:
+              columns: 6
+          - type: markdown
+            content: |
+              {% set box = state_attr('sensor.albert_heijn_bonus_box', 'aanbiedingen') or [] %}
+              {% for o in box %}
+              - {{ '✅' if o.activated else '⬜' }} **{{ o.title }}**{% if o.mechanism %}: {{ o.mechanism }}{% endif %}
+              {% else %}
+              Geen Bonus Box deze week.
+              {% endfor %}
+      - type: grid
+        cards:
+          - type: heading
+            heading: Spotlight
+            heading_style: title
+            icon: mdi:star-circle
+          - type: markdown
+            content: |
+              {% set offers = state_attr('sensor.albert_heijn_bonus_spotlight', 'offers') or [] %}
+              <table>
+              {% for o in offers %}
+              <tr><td>{% if o.image %}<img src="{{ o.image }}" width="44">{% endif %}</td>
+              <td>{% if o.on_list %}🛒 {% endif %}<b>{{ o.title }}</b><br><font color="#e8590c">{{ o.mechanism }}</font></td></tr>
+              {% endfor %}
+              </table>
+
+  - title: Kassabonnen
+    path: kassabonnen
+    icon: mdi:receipt-text
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Uitgaven
+            heading_style: title
+            icon: mdi:cash-register
+          - type: tile
+            entity: sensor.albert_heijn_uitgaven_deze_maand
+            name: Deze maand
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_laatste_kassabon
+            name: Laatste bon
+            grid_options:
+              columns: 6
+          - type: statistics-graph
+            entities:
+              - sensor.albert_heijn_uitgaven_deze_maand
+            stat_types:
+              - max
+            chart_type: bar
+            period: month
+            days_to_show: 365
+            title: Per maand
+          - type: markdown
+            title: Recente bonnen
+            content: |
+              {% set recent = state_attr('sensor.albert_heijn_laatste_kassabon', 'recent') or [] %}
+              <table>
+              {% for r in recent %}
+              <tr><td>{{ as_timestamp(r.datetime) | timestamp_custom('%d-%m-%Y %H:%M') }}</td>
+              <td>€ {{ '%.2f' | format(r.total) }}</td>
+              <td>{% if r.pdf_url %}<a href="{{ r.pdf_url }}" target="_blank">PDF</a>{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+      - type: grid
+        cards:
+          - type: heading
+            heading: Bon bekijken
+            heading_style: title
+            icon: mdi:receipt-text-check
+          - type: tile
+            entity: select.albert_heijn_kassabon
+            name: Kies een bon
+            features:
+              - type: select-options
+          - type: markdown
+            content: |
+              {% set e = 'sensor.albert_heijn_gekozen_kassabon' %}
+              {% set items = state_attr(e, 'items') or [] %}
+              {% if items %}
+              **{{ as_timestamp(state_attr(e, 'datetime')) | timestamp_custom('%A %d-%m-%Y %H:%M') }}**
+              {% if state_attr(e, 'pdf_url') %} · <a href="{{ state_attr(e, 'pdf_url') }}" target="_blank">Open PDF</a>{% endif %}
+
+              <table>
+              {% for i in items %}
+              <tr><td>{{ i.quantity }}×</td><td>{{ i.name }}</td><td align="right">{% if i.amount is not none %}€ {{ '%.2f' | format(i.amount) }}{% endif %}</td></tr>
+              {% endfor %}
+              {% if state_attr(e, 'discount_total') %}
+              <tr><td></td><td><b>Korting</b></td><td align="right"><b>€ {{ '%.2f' | format(state_attr(e, 'discount_total')) }}</b></td></tr>
+              {% endif %}
+              <tr><td></td><td><b>Totaal</b></td><td align="right"><b>€ {{ '%.2f' | format(states(e) | float(0)) }}</b></td></tr>
+              </table>
+              {% else %}
+              Kies hierboven een bon.
+              {% endif %}
+
+  - title: Winkel
+    path: winkel
+    icon: mdi:store
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Je winkel
+            heading_style: title
+            icon: mdi:store
+          - type: tile
+            entity: binary_sensor.albert_heijn_winkel_open
+            name: Nu open
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_winkel
+            name: Sluit om
+            grid_options:
+              columns: 6
+          - type: markdown
+            content: |
+              {% set e = 'sensor.albert_heijn_winkel' %}
+              {% if state_attr(e, 'adres') %}📍 {{ state_attr(e, 'adres') }}{% endif %}
+
+              <table>
+              {% for d in state_attr(e, 'openingstijden') or [] %}
+              <tr><td>{{ d.dag | capitalize }}</td><td>{{ d.datum[8:10] }}-{{ d.datum[5:7] }}</td>
+              <td>{% if d.open %}{{ d.open }} tot {{ d.dicht }}{% else %}gesloten{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+      - type: grid
+        cards:
+          - type: heading
+            heading: Koopjes
+            heading_style: title
+            icon: mdi:tag-heart
+          - type: tile
+            entity: sensor.albert_heijn_koopjes
+            name: Koopjes vandaag
+          - type: markdown
+            content: |
+              {% set items = state_attr('sensor.albert_heijn_koopjes', 'items') or [] %}
+              {% if items %}
+              <table>
+              {% for k in items | sort(attribute='is_favoriet', reverse=true) %}
+              <tr><td>{% if k.is_favoriet %}⭐ {% endif %}<b>{{ k.title }}</b><br>{{ k.size or '' }} · {{ k.category or '' }}</td>
+              <td>{% if k.price is not none %}€ {{ '%.2f' | format(k.price) }}{% endif %}{% if k.price_was %}<br><s>€ {{ '%.2f' | format(k.price_was) }}</s>{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+              {% else %}
+              Geen koopjes op dit moment.
+              {% endif %}

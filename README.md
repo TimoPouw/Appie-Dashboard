@@ -305,6 +305,28 @@ Of met de hand:
 2. Installeer **Albert Heijn** en herstart Home Assistant.
 3. Instellingen → Apparaten & diensten → **Integratie toevoegen** → *Albert Heijn*.
 
+### Beta-versies
+
+Versies met `-beta` in de naam (zoals `v0.3.0-beta.1`) zijn pre-releases. HACS laat ze alleen zien als je bij de integratie in HACS ⋮ → **Opnieuw downloaden** kiest en **Bètaversies tonen** aanzet. Werkt Home Assistant 2025.8 of nieuwer; het logo in de integratielijst verschijnt vanaf Home Assistant 2026.3.
+
+## Dashboard
+
+In [`dashboards/appie.yaml`](dashboards/appie.yaml) staat een kant-en-klaar dashboard met vier tabbladen: **Boodschappen** (lijst, kosten, Vaak gekocht-knoppen, Vergeet niet, favoriete lijsten), **Bonus** (bonus voor jou, Bonus Box, spotlight), **Kassabonnen** (uitgaven per maand, recente bonnen met PDF, bon bekijken) en **Winkel** (openingstijden en koopjes). Het gebruikt alleen standaardkaarten van Home Assistant, dus je hoeft niets extra te installeren.
+
+1. Instellingen → Dashboards → **Dashboard toevoegen** → **Nieuw dashboard vanaf nul**, noem het bijvoorbeeld *Albert Heijn*.
+2. Open het, ⋮ → **Bewerken** → ⋮ → **Ruwe configuratie-editor**.
+3. Vervang alles door de inhoud van `dashboards/appie.yaml` en sla op.
+
+Heb je het aantal Vaak gekocht-knoppen verhoogd, kopieer dan een van de knoppen in het dashboard en verander het nummer.
+
+## Blueprint: melding bij een koopje
+
+Krijg een melding als je winkel een koopje heeft van iets wat je vaak koopt:
+
+[![Importeer de blueprint in je Home Assistant.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FTimoPouw%2FAppie-Dashboard%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fappie%2Fkoopje_favoriet.yaml)
+
+Standaard komt er een melding in Home Assistant zelf; kies bij het instellen een andere actie (bijvoorbeeld een melding naar je telefoon) als je dat liever hebt.
+
 ## Inloggen
 
 AH stuurt na het inloggen door naar `appie://login-exit?code=...`, een adres dat alleen de app kan openen. Die link vang je op met de ontwikkelaarstools van je browser:
@@ -320,8 +342,17 @@ Daarna ververst de integratie zelf de toegang (een token is 7 dagen geldig en wo
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install pytest-homeassistant-custom-component
+.venv/bin/pip install -r requirements_test.txt
 .venv/bin/python -m pytest
+```
+
+Bij elke push en pull request draaien hassfest, de HACS-controle en de tests (GitHub Actions). Een release maak je door een tag te pushen die gelijk is aan de versie in `manifest.json`, bijvoorbeeld `v0.3.0-beta.1`; de release-notes komen uit `CHANGELOG.md`, en een tag met `-` wordt een pre-release.
+
+Logo en icoon: zet de officiële bestanden in de goede maten met
+
+```bash
+.venv/bin/pip install pillow
+.venv/bin/python scripts/make_brand.py --icon icoon.png --logo logo.png --dark-logo logo-wit.png
 ```
 
 ## Dankjewel
