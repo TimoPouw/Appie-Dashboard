@@ -13,7 +13,6 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 - **Kassabonnen**: je laatste kassabon met artikelen en korting, wat je deze maand bij AH hebt uitgegeven, en elke recente bon openen (ook als PDF).
 - **Vaak gekocht**: knoppen met wat je het vaakst koopt (standaard 10, geteld over de kassabonnen van de afgelopen 4 maanden; beide in te stellen). Eén tik zet het product op je lijst; staat het er al, dan komt er één bij.
 - **Je winkel**: open of dicht, openingstijden, en de koopjes van vandaag. Staat er iets uit Vaak gekocht tussen, dan krijg je een event.
-- **Recepten**: wat AH je aanraadt, en recepten zoeken.
 - **Zoeken en toevoegen op naam**: `appie.add_product` voor Assist, bijvoorbeeld "zet halfvolle melk op de lijst".
 
 > **Met dank aan [Willem de Groot](https://github.com/gwillem) en [appie-go](https://github.com/gwillem/appie-go).** Zonder zijn uitzoekwerk aan de AH-app had deze integratie niet bestaan. Zie [Dankjewel](#dankjewel) onderaan.
@@ -37,9 +36,8 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `binary_sensor.albert_heijn_winkel_open` | Is je vaste winkel nu open? |
 | `sensor.albert_heijn_winkel` | Sluitingstijd van vandaag ("22:00") of `gesloten`. Attributen `store_id`, `adres`, `openingstijden` (de komende dagen: `datum`, `dag`, `open`, `dicht`), `services`. |
 | `sensor.albert_heijn_koopjes` | Aantal koopjes (laatste-kans-afprijzingen) in je winkel. Attribuut `items`: `product_id`, `title`, `size`, `category`, `markdown_type`, `expires`, `is_favoriet`, `price`, `price_was`, `percentage`. |
-| `sensor.albert_heijn_recepten` | Aantal aanbevolen recepten. Attribuut `recepten`: `id`, `title`, `tijd` (minuten), `image`, `nutriscore`, `bonus`. |
 
-Grote attributen (`offers`, `items`, `recent`, `producten`, `suggesties`, `recepten` en alles van de gekozen kassabon) worden niet in de database opgeslagen.
+Grote attributen (`offers`, `items`, `recent`, `producten`, `suggesties` en alles van de gekozen kassabon) worden niet in de database opgeslagen.
 
 Kassabonnen zijn alleen de bonnen uit de winkel waarbij je je Bonuskaart (app) hebt gescand, net als in de app.
 
@@ -59,7 +57,6 @@ Kies een bon in `select.albert_heijn_kassabon`; de integratie haalt hem op en ze
 | Vaak gekocht | elke 12 uur (elke bon maar één keer) |
 | Winkel | elke 12 uur; open of dicht wordt elke minuut lokaal uitgerekend |
 | Koopjes | elke 30 minuten, alleen als je winkel open is |
-| Recepten | elke dag |
 
 ## Opties
 
@@ -141,27 +138,6 @@ intent_script:
         response_variable: gekozen
     speech:
       text: "{{ gekozen.title }} staat op de lijst."
-```
-
-**`appie.search_recipes`**: recepten zoeken.
-
-```yaml
-action: appie.search_recipes
-data:
-  zoekterm: pasta
-  aantal: 3
-response_variable: recepten
-```
-
-```yaml
-recepten:
-  - id: 12345
-    title: Pasta carbonara
-    tijd: 25
-    image: https://static.ah.nl/...
-    nutriscore: B
-    bonus: false
-totaal: 245
 ```
 
 **`appie.get_receipt`**: een recente kassabon ophalen. Zonder `receipt_id` krijg je de laatste.
@@ -249,7 +225,7 @@ Deze integratie staat op de schouders van **[appie-go](https://github.com/gwille
 | Kassabonnen (GraphQL) | `receipts.go` |
 | Kassacodes omzetten naar producten (*Vaak gekocht*) | `productConvertId` ([bijdrage van @aaearon](https://github.com/gwillem/appie-go/pull/17)) |
 | Kassabon als PDF | `receipts.go` |
-| Lijst kosten, Vergeet niet, favoriete winkel, recepten | de API-documentatie (`FetchTotalPrice`, `dontforgetlane`, `GetFavoriteStore`, `FetchRecommendedRecipes`, `FetchRecipes`) |
+| Lijst kosten, Vergeet niet, favoriete winkel | de API-documentatie (`FetchTotalPrice`, `dontforgetlane`, `GetFavoriteStore`) |
 | Koopjes | `koopjes.go` |
 | Producten zoeken | `products.go` en `doc/search-api.md` |
 

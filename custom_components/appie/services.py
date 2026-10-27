@@ -1,8 +1,6 @@
-"""Services: product search, adding a product by name, recipes, receipts."""
+"""Services: product search, adding a product by name, receipts."""
 
 from __future__ import annotations
-
-from dataclasses import asdict
 
 import voluptuous as vol
 
@@ -19,14 +17,12 @@ from .models import (
     best_match,
     new_product_item,
     parse_receipt_detail,
-    parse_recipe_search,
     parse_search,
     receipt_view,
 )
 
 SERVICE_SEARCH = "search"
 SERVICE_ADD_PRODUCT = "add_product"
-SERVICE_SEARCH_RECIPES = "search_recipes"
 SERVICE_GET_RECEIPT = "get_receipt"
 
 ATTR_QUERY = "zoekterm"
@@ -46,12 +42,6 @@ ADD_PRODUCT_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
         vol.Optional(ATTR_COUNT, default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
-    }
-)
-RECIPES_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
-        vol.Optional(ATTR_COUNT, default=7): vol.All(vol.Coerce(int), vol.Range(min=1, max=30)),
     }
 )
 RECEIPT_SCHEMA = vol.Schema({vol.Optional(ATTR_RECEIPT_ID): cv.string})
@@ -111,15 +101,6 @@ def async_setup_services(hass: HomeAssistant) -> None:
         await data.shopping_list.async_refresh()
         return {**product.as_dict(), "match": reason, "quantity_on_list": quantity}
 
-    async def search_recipes(call: ServiceCall) -> ServiceResponse:
-        client = _entry(hass).runtime_data.client
-        try:
-            raw = await client.search_recipes(call.data[ATTR_QUERY].strip(), call.data[ATTR_COUNT])
-        except AppieError as err:
-            raise HomeAssistantError(f"Albert Heijn: {err}") from err
-        recipes, total = parse_recipe_search(raw)
-        return {"recepten": [asdict(r) for r in recipes[: call.data[ATTR_COUNT]]], "totaal": total}
-
     async def get_receipt(call: ServiceCall) -> ServiceResponse:
         data = _entry(hass).runtime_data
         receipts = data.receipts.data
@@ -144,9 +125,6 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN, SERVICE_GET_RECEIPT, get_receipt, schema=RECEIPT_SCHEMA, supports_response=SupportsResponse.ONLY
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_SEARCH_RECIPES, search_recipes, schema=RECIPES_SCHEMA, supports_response=SupportsResponse.ONLY
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SEARCH, search, schema=SEARCH_SCHEMA, supports_response=SupportsResponse.ONLY

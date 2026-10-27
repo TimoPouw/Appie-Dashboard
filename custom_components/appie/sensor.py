@@ -22,7 +22,6 @@ from .coordinator import (
     ListCostCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
-    RecipesCoordinator,
     StoreCoordinator,
 )
 from .entity import device_info
@@ -47,7 +46,6 @@ async def async_setup_entry(
             DontForgetSensor(entry, data.dont_forget),
             StoreSensor(entry, data.store),
             BargainsSensor(entry, data.bargains),
-            RecipesSensor(entry, data.recipes),
             PickedReceiptSensor(entry, data.receipt_viewer),
         ]
     )
@@ -312,25 +310,6 @@ class BargainsSensor(_Base, SensorEntity):
                 for b in self.coordinator.data or []
             ]
         }
-
-
-class RecipesSensor(_Base, SensorEntity):
-    """Recipes AH recommends, bonus recipes marked."""
-
-    _attr_icon = "mdi:chef-hat"
-    _attr_native_unit_of_measurement = "recepten"
-    _unrecorded_attributes = frozenset({"recepten"})
-
-    def __init__(self, entry: AppieConfigEntry, coordinator: RecipesCoordinator) -> None:
-        super().__init__(entry, coordinator, "recepten", "Recepten")
-
-    @property
-    def native_value(self) -> int:
-        return len(self.coordinator.data or [])
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        return {"recepten": [asdict(r) for r in self.coordinator.data or []]}
 
 
 class PickedReceiptSensor(_Base, SensorEntity):

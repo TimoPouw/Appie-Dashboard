@@ -133,52 +133,6 @@ BARGAINS_QUERY = """query BargainItems($storeId: String!) {
   }
 }"""
 
-# appie-go doc/albertheijn_api.md, "FetchRecipes" and "FetchRecommendedRecipes".
-RECIPE_FRAGMENTS = """fragment RecipeImageFragment on RecipeImage { __typename width height url }
-fragment RecipeSummaryFragment on RecipeSummary {
-  __typename id title
-  time { __typename cook }
-  images(renditions: [S, M, D445X297, D890X594]) { __typename ...RecipeImageFragment }
-  author { __typename origin { __typename type hostName url } }
-  flags nutriScore
-  tags { __typename key value }
-}"""
-
-RECIPES_QUERY = (
-    """query FetchRecipes($searchText: String, $start: Int, $size: PageSize, $sortBy: RecipeSearchSortOption, \
-$filters: [RecipeSearchQueryFilter!], $priorityRecipeIds: [Int!], $boostFavoriteRecipeIds: [Int!], \
-$recipeIds: [Int!]!, $ingredients: [String!]) {
-  recipeSearchV2(searchText: $searchText, start: $start, size: $size, sortBy: $sortBy, filters: $filters, \
-priorityRecipeIds: $priorityRecipeIds, boostFavoriteRecipeIds: $boostFavoriteRecipeIds, recipeIds: $recipeIds, \
-ingredients: $ingredients) {
-    __typename
-    correctedSearchTerm
-    page { __typename total hasNextPage }
-    result { __typename ...RecipeSummaryFragment }
-  }
-}
-"""
-    + RECIPE_FRAGMENTS
-)
-
-RECOMMENDED_RECIPES_QUERY = (
-    """query FetchRecommendedRecipes($shouldSkipRecentlyShopped: Boolean!, $testGroup: String = null, \
-$recommendationDate: String = null) {
-  recommendations: recipeRecommendationLane(testGroup: $testGroup recommendationDate: $recommendationDate) {
-    __typename
-    recipeRecommendations { __typename id recipe { __typename ...RecipeSummaryFragment } }
-    bonusRecipes { __typename recipe { __typename ...RecipeSummaryFragment } }
-    genericRecipeRecommendations { __typename recipe { __typename ...RecipeSummaryFragment } }
-    servingSize
-  }
-  recentlyShopped: recipeShoppedRecipes @skip(if: $shouldSkipRecentlyShopped) {
-    __typename lastShoppedAt recipe { __typename id }
-  }
-}
-"""
-    + RECIPE_FRAGMENTS
-)
-
 # appie-go receipts.go, fetchPosReceiptPdfQuery.
 RECEIPT_PDF_QUERY = """query FetchPosReceiptPdf($id: String!) {
   posReceiptPdf(id: $id) {
@@ -442,37 +396,3 @@ class AppieClient:
         is passed as a string there, so here too.
         """
         return await self._graphql(BARGAINS_QUERY, {"storeId": str(store_id)})
-
-    # recipes
-
-    async def get_recommended_recipes(self) -> dict:
-        """Recipe recommendations: GraphQL FetchRecommendedRecipes. (verified)
-
-        Query and variables from appie-go's API doc, minus the preference tiles
-        and week fields we don't show.
-        """
-        return await self._graphql(
-            RECOMMENDED_RECIPES_QUERY, {"shouldSkipRecentlyShopped": True, "testGroup": None}
-        )
-
-    async def search_recipes(self, text: str, size: int = 7) -> dict:
-        """Recipe search: GraphQL FetchRecipes. (verified)
-
-        Query and variables from appie-go's API doc (which shows size 7; size is
-        a PageSize there, other values are assumed to work the same). The facet
-        filters in the response are not requested.
-        """
-        return await self._graphql(
-            RECIPES_QUERY,
-            {
-                "searchText": text,
-                "start": 0,
-                "size": size,
-                "sortBy": "MOST_RELEVANT",
-                "filters": [],
-                "priorityRecipeIds": [],
-                "boostFavoriteRecipeIds": [],
-                "recipeIds": [],
-                "ingredients": [],
-            },
-        )

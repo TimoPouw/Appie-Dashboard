@@ -23,7 +23,6 @@ from .coordinator import (
     ListCostCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
-    RecipesCoordinator,
     StoreCoordinator,
 )
 from .receipt_pdf import ReceiptPdfView
@@ -73,7 +72,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     dont_forget = DontForgetCoordinator(hass, entry, client, shopping_list)
     store = StoreCoordinator(hass, entry, client)
     bargains = BargainsCoordinator(hass, entry, client, store, favorites)
-    recipes = RecipesCoordinator(hass, entry, client)
     receipt_viewer = ReceiptViewerCoordinator(hass, entry, client, receipts)
 
     # Sequential on purpose: the first call may refresh the token.
@@ -85,7 +83,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await dont_forget.async_refresh()
     await store.async_refresh()
     await bargains.async_refresh()
-    await recipes.async_refresh()
     # Starts on the latest receipt, which the receipts coordinator already has: no call.
     await receipt_viewer.async_refresh()
 
@@ -103,7 +100,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
         dont_forget=dont_forget,
         store=store,
         bargains=bargains,
-        recipes=recipes,
         receipt_viewer=receipt_viewer,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

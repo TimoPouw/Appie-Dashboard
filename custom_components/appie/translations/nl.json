@@ -79,20 +79,6 @@
         }
       }
     },
-    "search_recipes": {
-      "name": "Recepten zoeken",
-      "description": "Zoekt in de Allerhande-recepten en geeft de gevonden recepten terug.",
-      "fields": {
-        "zoekterm": {
-          "name": "Zoekterm",
-          "description": "Waar je zin in hebt, bijvoorbeeld \"pasta\"."
-        },
-        "aantal": {
-          "name": "Aantal",
-          "description": "Hoeveel recepten je terug wilt (1 tot 30)."
-        }
-      }
-    },
     "get_receipt": {
       "name": "Kassabon ophalen",
       "description": "Haalt een van je recente kassabonnen op, met alle regels en een link naar de PDF. Er wordt niets bewaard.",

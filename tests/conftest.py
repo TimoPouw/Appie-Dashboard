@@ -8,8 +8,6 @@ from .common import (
     BARGAINS,
     DONT_FORGET,
     META,
-    RECIPE_SEARCH,
-    RECOMMENDED_RECIPES,
     SEARCH,
     STORE,
     TOTAL_PRICE,
@@ -42,8 +40,6 @@ def api():
         "get_dont_forget": AsyncMock(return_value=DONT_FORGET),
         "get_favorite_store": AsyncMock(return_value=STORE),
         "get_bargains": AsyncMock(return_value=BARGAINS),
-        "get_recommended_recipes": AsyncMock(return_value=RECOMMENDED_RECIPES),
-        "search_recipes": AsyncMock(return_value=RECIPE_SEARCH),
         "get_receipt_pdf": AsyncMock(return_value=b"%PDF-1.4 kassabon"),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]

@@ -10,7 +10,6 @@ Fork van [eejeha/Appie-Dashboard](https://github.com/eejeha/Appie-Dashboard). Al
 - `sensor.albert_heijn_vergeet_niet`: de "vergeet niet"-suggesties van de app.
 - `binary_sensor.albert_heijn_winkel_open` en `sensor.albert_heijn_winkel`: je vaste winkel met openingstijden.
 - `sensor.albert_heijn_koopjes` en het event `appie_koopje_favoriet`.
-- `sensor.albert_heijn_recepten` en de service `appie.search_recipes`.
 - `select.albert_heijn_kassabon` en `sensor.albert_heijn_gekozen_kassabon`: elke recente kassabon bekijken, plus een PDF-link per bon. De service `appie.get_receipt`.
 - `sensor.albert_heijn_vaak_gekocht` met de hele ranglijst.
 - Services `appie.search` en `appie.add_product` (handig met Assist).
