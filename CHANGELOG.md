@@ -1,9 +1,14 @@
 # Changelog
 
-## Nog niet uitgebracht
+## 0.4.0
+
+### Nieuw
 
 - Service `appie.activate_bonus`: een aanbieding uit je Bonus Box activeren, net als in de app (proefversie: AH documenteert deze aanroep niet, zie README).
 - Bonus Box-aanbiedingen hebben ook `hq_id`.
+
+### Verbeterd
+
 - Lijst kosten: de eerste wijziging aan je lijst wordt direct doorgerekend, niet pas na een minuut. Een snelle reeks wijzigingen daarna kost nog steeds maar één extra vraag aan AH.
 
 ## 0.3.1
