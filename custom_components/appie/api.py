@@ -182,6 +182,17 @@ FAVORITE_LIST_ITEMS_QUERY = """query FavoriteListV2($ids: [String!]!) {
   }
 }"""
 
+# appie-go doc/albertheijn_api.md, "FetchFavoriteLists".
+FAVORITE_LISTS_QUERY = """query FetchFavoriteLists($ids: [String!]!, $productIds: [Int!]!) {
+  favoriteListV2(ids: $ids, productIds: $productIds) {
+    __typename
+    ...FavoriteListFragment
+  }
+}
+fragment FavoriteListFragment on FavoriteListV2 {
+  __typename id description totalSize imageUrl
+}"""
+
 ADD_TO_FAVORITE_LIST_MUTATION = """mutation AddProductsToFavoriteList($favoriteListId: String!, \
 $products: [FavoriteListProductMutation!]!) {
   favoriteListProductsAddV2(id: $favoriteListId, products: $products) {
@@ -344,13 +355,13 @@ class AppieClient:
 
     # favorite lists ("lijstjes")
 
-    async def get_favorite_lists(self) -> list[dict]:
-        """All favorite lists (v3). (verified)
+    async def get_favorite_lists(self) -> dict:
+        """All favorite lists: GraphQL FetchFavoriteLists. (verified)
 
-        GET /mobile-services/lists/v3/lists?productId=..; AH requires a productId
-        but returns all lists whatever it is, appie-go passes 1.
+        Query and variables from appie-go's API doc. The REST lists/v3 endpoint
+        from the same doc answers 404 nowadays.
         """
-        return await self._request("GET", "/mobile-services/lists/v3/lists?productId=1") or []
+        return await self._graphql(FAVORITE_LISTS_QUERY, {"ids": [], "productIds": []})
 
     async def get_favorite_list_items(self, list_id: str) -> dict:
         """One favorite list with its items: GraphQL favoriteListV2. (verified)

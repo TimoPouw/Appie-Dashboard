@@ -3,6 +3,95 @@
 # Paste into a new dashboard (Raw configuration editor), see README "Dashboard".
 title: Albert Heijn
 views:
+  - title: Overzicht
+    path: overzicht
+    icon: mdi:view-dashboard
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Vandaag
+            heading_style: title
+            icon: mdi:calendar-today
+          - type: tile
+            entity: sensor.albert_heijn_lijst_kosten
+            name: Je lijst kost
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_uitgaven_deze_maand
+            name: Uitgegeven deze maand
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_bonus_box
+            name: Bonus Box
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_koopjes
+            name: Koopjes
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: binary_sensor.albert_heijn_winkel_open
+            name: Winkel open
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_vergeet_niet
+            name: Vergeet niet
+            grid_options:
+              columns: 6
+      - type: grid
+        cards:
+          - type: heading
+            heading: In je Bonus Box
+            heading_style: title
+            icon: mdi:gift-outline
+          - type: markdown
+            content: |
+              {% set box = state_attr('sensor.albert_heijn_bonus_box', 'aanbiedingen') or [] %}
+              {% set max = state_attr('sensor.albert_heijn_bonus_box', 'max_activaties') %}
+              {% set aan = state_attr('sensor.albert_heijn_bonus_box', 'geactiveerd') or 0 %}
+              {% if box %}
+              **{{ aan }}{% if max %} van {{ max }}{% endif %} geactiveerd**
+              <table>
+              {% for o in box | sort(attribute='activated', reverse=true) %}
+              <tr><td>{% if o.image %}<img src="{{ o.image }}" width="44">{% endif %}</td>
+              <td>{{ '✅' if o.activated else '⬜' }} <b>{{ o.title }}</b><br>
+              {% if o.mechanism %}<font color="#e8590c">{{ o.mechanism }}</font>{% endif %}{% if o.category %} · {{ o.category }}{% endif %}</td>
+              <td align="right">{% if o.price is not none %}€ {{ '%.2f' | format(o.price) }}{% endif %}{% if o.price_was %}<br><s>€ {{ '%.2f' | format(o.price_was) }}</s>{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+              Activeren doe je in de Appie-app.
+              {% else %}
+              Je Bonus Box is (nog) leeg.
+              {% endif %}
+      - type: grid
+        cards:
+          - type: heading
+            heading: Vaak gekocht
+            heading_style: title
+            icon: mdi:cart-heart
+          - type: markdown
+            content: |
+              {% set items = state_attr('sensor.albert_heijn_vaak_gekocht', 'producten') or [] %}
+              {% if items %}
+              <table>
+              {% for p in items %}
+              <tr><td>{{ p.rank }}.</td>
+              <td>{% if p.entity_picture %}<img src="{{ p.entity_picture }}" width="40">{% endif %}</td>
+              <td><b>{{ p.title }}</b><br>{{ p.times_bought }}× gekocht{% if p.bonus %} · <font color="#e8590c">{{ p.bonus }}</font>{% endif %}</td>
+              <td>{% if p.on_list %}🛒 {{ p.quantity_on_list }}{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+              Op de lijst zetten: tabblad **Boodschappen**.
+              {% else %}
+              Nog aan het tellen. Dit duurt bij de eerste start even.
+              {% endif %}
   - title: Boodschappen
     path: boodschappen
     icon: mdi:cart
@@ -34,7 +123,7 @@ views:
           - type: heading
             heading: Vaak gekocht
             heading_style: title
-            icon: mdi:star-shopping
+            icon: mdi:cart-heart
           - type: markdown
             content: |
               Tik op een product om het op je lijst te zetten.

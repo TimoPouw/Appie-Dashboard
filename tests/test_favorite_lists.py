@@ -91,7 +91,8 @@ async def test_favorite_list_to_list(hass: HomeAssistant, api) -> None:
 async def test_unknown_list_refreshes_once(hass: HomeAssistant, api) -> None:
     await setup_appie(hass)
     calls = api["get_favorite_lists"].await_count
-    api["get_favorite_lists"].return_value = [{"id": "nieuw-1", "description": "Nieuw", "itemCount": 0}]
+    api["get_favorite_lists"].return_value = {"data": {"favoriteListV2": [
+        {"id": "nieuw-1", "description": "Nieuw", "totalSize": 0}]}}
     api["get_favorite_list_items"].return_value = {"data": {"favoriteListV2": []}}
     response = await hass.services.async_call(
         DOMAIN, "get_favorite_list", {"lijst": "Nieuw"}, blocking=True, return_response=True
@@ -107,15 +108,16 @@ async def test_unknown_list_refreshes_once(hass: HomeAssistant, api) -> None:
 
 
 async def test_favorite_list_endpoints(hass: HomeAssistant, aioclient_mock) -> None:
-    aioclient_mock.get(f"{API_BASE}/mobile-services/lists/v3/lists", json=[])
     aioclient_mock.post(
-        f"{API_BASE}/graphql", json={"data": {"favoriteListProductsAddV2": {"status": "SUCCESS", "errorMessage": None}}}
+        f"{API_BASE}/graphql",
+        json={"data": {"favoriteListV2": [], "favoriteListProductsAddV2": {"status": "SUCCESS", "errorMessage": None}}},
     )
     client = AppieClient(async_get_clientsession(hass), TOKENS)
     await client.get_favorite_lists()
     await client.add_to_favorite_list(WEEK, [{"productId": 482500, "quantity": 1}])
     lists, mutation = aioclient_mock.mock_calls
-    assert dict(lists[1].query) == {"productId": "1"}
+    assert lists[2]["variables"] == {"ids": [], "productIds": []}
+    assert "FetchFavoriteLists" in lists[2]["query"]
     assert mutation[2]["variables"] == {
         "favoriteListId": WEEK.upper(), "products": [{"productId": 482500, "quantity": 1}]}
     assert "favoriteListProductsAddV2" in mutation[2]["query"]

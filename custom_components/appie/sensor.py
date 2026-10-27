@@ -160,7 +160,7 @@ class MonthSpendSensor(_Base, SensorEntity):
 class FavoritesSensor(_Base, SensorEntity):
     """The whole "vaak gekocht" ranking in one entity, for dashboards."""
 
-    _attr_icon = "mdi:star-shopping"
+    _attr_icon = "mdi:cart-heart"
     _attr_native_unit_of_measurement = "producten"
     _unrecorded_attributes = frozenset({"producten"})
 

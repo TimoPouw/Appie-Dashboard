@@ -50,7 +50,9 @@ async def test_dashboard_templates_render(hass: HomeAssistant, api, dashboard) -
     joined = "\n".join(rendered)
     # Real data shows up, not just the empty-state texts.
     for expected in ("AH Goudse jong 48+ plakken", "Weekboodschappen", "AH Courgette", "AH Pancakes",
-                     "Nachtegaalstraat", "AH Roodbaarsfilet", "Bio banaan", "PDF"):
+                     "Nachtegaalstraat", "AH Roodbaarsfilet", "Bio banaan", "PDF",
+                     # Overzicht: what's in the Bonus Box and the "vaak gekocht" ranking.
+                     "1 van 10 geactiveerd", "3× gekocht"):
         assert expected in joined, expected
     assert "{{" not in joined and "{%" not in joined
 
