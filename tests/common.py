@@ -67,6 +67,27 @@ BARGAINS = {"data": {"bargainItems": [
      "markdown": {"markdownType": "PERCENTAGE", "markdownExpirationDate": "2026-10-27", "markdownPercentage": 35.0},
      "stock": 1, "bargainPrice": {"priceWas": "3.29", "priceNow": "2.14"}},
 ]}}
+# GET /mobile-services/product/detail/v4/fir/<id>, from appie-go's API doc.
+PRODUCT_DETAIL = {
+    "productId": 436752,
+    "productCard": {
+        "webshopId": 436752, "hqId": 60727, "title": "AH Biologisch Rundergehakt", "brand": "AH Biologisch",
+        "salesUnitSize": "300 g", "mainCategory": "Vlees", "subCategory": "Rundergehakt",
+        "images": [{"width": 200, "height": 200, "url": "https://img.invalid/gehakt"}],
+        "currentPrice": 5.66, "priceBeforeBonus": 6.29, "isBonus": True, "bonusMechanism": "10% KORTING",
+        "isFavorite": False, "isPreviouslyBought": True, "isOrderable": True, "availableOnline": True,
+        "nutriscore": "D", "descriptionHighlights": "<p>Biologisch <b>rundergehakt</b></p>",
+        "propertyIcons": ["biologisch"], "discountLabels": [],
+    },
+    "properties": [],
+}
+
+# GraphQL FetchProduct (nutrition), from appie-go's API doc.
+NUTRITION = {"data": {"product": {"id": 436752, "tradeItem": {"nutritions": [{"nutrients": [
+    {"type": "ENER-", "name": "Energie", "value": "1011 kJ (243 kcal)"},
+    {"type": "FAT", "name": "Vet", "value": "18 g"},
+]}]}}}}
+
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(

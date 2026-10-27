@@ -140,6 +140,18 @@ RECEIPT_PDF_QUERY = """query FetchPosReceiptPdf($id: String!) {
   }
 }"""
 
+# appie-go products.go, fetchProductNutritionQuery.
+NUTRITION_QUERY = """query FetchProduct($productId: Int!) {
+  product(id: $productId) {
+    id
+    tradeItem {
+      nutritions {
+        nutrients { type name value }
+      }
+    }
+  }
+}"""
+
 
 class AppieError(Exception):
     """API call failed."""
@@ -347,6 +359,28 @@ class AppieClient:
         if isinstance(rows, dict):
             rows = rows.get("products") or []
         return {p["webshopId"]: p for p in rows or [] if p.get("webshopId")}
+
+    async def get_product_detail(self, product_id: int) -> dict:
+        """One product's detail page. (verified)
+
+        GET /mobile-services/product/detail/v4/fir/<webshopId>, as in appie-go
+        products.go (GetProduct); the product itself is under productCard.
+        """
+        return await self._request("GET", f"/mobile-services/product/detail/v4/fir/{int(product_id)}")
+
+    async def get_nutrition(self, product_id: int) -> dict:
+        """Nutritional values via the tradeItem: GraphQL FetchProduct. (verified)"""
+        return await self._graphql(NUTRITION_QUERY, {"productId": int(product_id)})
+
+    async def get_subcategories(self, category_id: int) -> Any:
+        """Sub-categories of a product category. (verified endpoint, inferred response)
+
+        GET /mobile-services/v1/product-shelves/categories/<id>/sub-categories is
+        in appie-go's API doc, but without a response example; the answer is
+        passed on as AH sends it.
+        """
+        path = f"/mobile-services/v1/product-shelves/categories/{int(category_id)}/sub-categories"
+        return await self._request("GET", path)
 
     async def search_products(self, query: str, size: int = 10) -> dict:
         """Product search by text. (verified)

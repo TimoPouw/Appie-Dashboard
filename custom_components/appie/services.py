@@ -1,4 +1,4 @@
-"""Services: product search, adding a product by name, receipts."""
+"""Services: products, adding a product by name, receipts."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from .coordinator import AppieConfigEntry
 from .models import (
     best_match,
     new_product_item,
+    parse_product_detail,
     parse_receipt_detail,
     parse_search,
     receipt_view,
@@ -24,10 +25,16 @@ from .models import (
 SERVICE_SEARCH = "search"
 SERVICE_ADD_PRODUCT = "add_product"
 SERVICE_GET_RECEIPT = "get_receipt"
+SERVICE_GET_PRODUCT = "get_product"
+SERVICE_GET_PRODUCTS = "get_products"
+SERVICE_GET_SUBCATEGORIES = "get_subcategories"
 
 ATTR_QUERY = "zoekterm"
 ATTR_COUNT = "aantal"
 ATTR_RECEIPT_ID = "receipt_id"
+ATTR_PRODUCT_ID = "product_id"
+ATTR_PRODUCT_IDS = "product_ids"
+ATTR_CATEGORY_ID = "categorie_id"
 
 # Enough results for add_product to find a product we often buy.
 ADD_PRODUCT_CANDIDATES = 20
@@ -44,6 +51,15 @@ ADD_PRODUCT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_COUNT, default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
     }
 )
+PRODUCT_SCHEMA = vol.Schema({vol.Required(ATTR_PRODUCT_ID): vol.All(vol.Coerce(int), vol.Range(min=1))})
+PRODUCTS_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_PRODUCT_IDS): vol.All(
+            cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=1))], vol.Length(min=1, max=50)
+        )
+    }
+)
+SUBCATEGORIES_SCHEMA = vol.Schema({vol.Required(ATTR_CATEGORY_ID): vol.All(vol.Coerce(int), vol.Range(min=1))})
 RECEIPT_SCHEMA = vol.Schema({vol.Optional(ATTR_RECEIPT_ID): cv.string})
 
 
@@ -101,6 +117,39 @@ def async_setup_services(hass: HomeAssistant) -> None:
         await data.shopping_list.async_refresh()
         return {**product.as_dict(), "match": reason, "quantity_on_list": quantity}
 
+    async def get_product(call: ServiceCall) -> ServiceResponse:
+        client = _entry(hass).runtime_data.client
+        product_id = call.data[ATTR_PRODUCT_ID]
+        try:
+            detail = await client.get_product_detail(product_id)
+            nutrition = await client.get_nutrition(product_id)
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        product = parse_product_detail(detail or {}, nutrition)
+        if product is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_product",
+                translation_placeholders={"product_id": str(product_id)},
+            )
+        return product
+
+    async def get_products(call: ServiceCall) -> ServiceResponse:
+        ids = call.data[ATTR_PRODUCT_IDS]
+        try:
+            products = await _entry(hass).runtime_data.client.get_products(ids)
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        # In the order asked; products AH doesn't sell online are left out.
+        return {"producten": [r.as_dict() for r in parse_search([products[i] for i in ids if i in products])]}
+
+    async def get_subcategories(call: ServiceCall) -> ServiceResponse:
+        try:
+            raw = await _entry(hass).runtime_data.client.get_subcategories(call.data[ATTR_CATEGORY_ID])
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        return {"antwoord": raw}
+
     async def get_receipt(call: ServiceCall) -> ServiceResponse:
         data = _entry(hass).runtime_data
         receipts = data.receipts.data
@@ -123,6 +172,19 @@ def async_setup_services(hass: HomeAssistant) -> None:
         view = receipt_view(receipt, detail, dt_util.get_default_time_zone())
         return {**view, "pdf_url": data.receipt_viewer.pdf_url(receipt.id)}
 
+    hass.services.async_register(
+        DOMAIN, SERVICE_GET_PRODUCT, get_product, schema=PRODUCT_SCHEMA, supports_response=SupportsResponse.ONLY
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_GET_PRODUCTS, get_products, schema=PRODUCTS_SCHEMA, supports_response=SupportsResponse.ONLY
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_SUBCATEGORIES,
+        get_subcategories,
+        schema=SUBCATEGORIES_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_GET_RECEIPT, get_receipt, schema=RECEIPT_SCHEMA, supports_response=SupportsResponse.ONLY
     )

@@ -717,6 +717,36 @@ def parse_search(raw: dict | list | None) -> list[SearchResult]:
     return results
 
 
+def parse_product_detail(raw: dict, nutrition: dict | None = None) -> dict[str, Any] | None:
+    """A product detail page (detail/v4) plus FetchProduct nutrition, for appie.get_product."""
+    card = raw.get("productCard") or {}
+    found = parse_search([card])
+    if not found:
+        return None
+    product = found[0].as_dict()
+    nutrients = (((nutrition or {}).get("data") or {}).get("product") or {}).get("tradeItem") or {}
+    product.update(
+        {
+            "brand": card.get("brand"),
+            "category": card.get("mainCategory"),
+            "subcategory": card.get("subCategory"),
+            "nutriscore": card.get("nutriscore"),
+            "orderable": card.get("isOrderable"),
+            "previously_bought": bool(card.get("isPreviouslyBought")),
+            "properties": card.get("propertyIcons") or [],
+            "description": re.sub(r"<[^>]+>", " ", card.get("descriptionHighlights") or "").strip() or None,
+            "nutrition": [
+                {"name": n.get("name"), "value": n.get("value")}
+                for block in nutrients.get("nutritions") or []
+                for n in block.get("nutrients") or []
+            ],
+        }
+    )
+    if product["description"]:
+        product["description"] = " ".join(product["description"].split())
+    return product
+
+
 MATCH_FAVORITE = "vaak_gekocht"
 MATCH_PREVIOUS = "eerder_gekocht"
 MATCH_SEARCH = "beste_zoekresultaat"

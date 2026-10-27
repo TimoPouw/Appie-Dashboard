@@ -48,6 +48,9 @@
     },
     "unknown_receipt": {
       "message": "Kassabon {receipt_id} staat niet tussen je recente bonnen."
+    },
+    "unknown_product": {
+      "message": "Product {product_id} niet gevonden."
     }
   },
   "services": {
@@ -86,6 +89,36 @@
         "receipt_id": {
           "name": "Kassabon-id",
           "description": "Id uit het attribuut `recent` van de sensor Laatste kassabon. Leeg: je laatste bon."
+        }
+      }
+    },
+    "get_product": {
+      "name": "Product ophalen",
+      "description": "Haalt één product op, met details en voedingswaarden.",
+      "fields": {
+        "product_id": {
+          "name": "Productnummer",
+          "description": "Het AH-productnummer (webshopId)."
+        }
+      }
+    },
+    "get_products": {
+      "name": "Producten ophalen",
+      "description": "Haalt meerdere producten tegelijk op via hun productnummer.",
+      "fields": {
+        "product_ids": {
+          "name": "Productnummers",
+          "description": "Lijst met AH-productnummers (maximaal 50)."
+        }
+      }
+    },
+    "get_subcategories": {
+      "name": "Subcategorieën ophalen",
+      "description": "Geeft de subcategorieën van een productcategorie terug, zoals AH ze stuurt.",
+      "fields": {
+        "categorie_id": {
+          "name": "Categorie-id",
+          "description": "Het AH-categorienummer (taxonomy-id)."
         }
       }
     }

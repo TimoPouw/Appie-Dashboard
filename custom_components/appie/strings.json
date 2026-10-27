@@ -48,6 +48,9 @@
     },
     "unknown_receipt": {
       "message": "Receipt {receipt_id} is not among your recent receipts."
+    },
+    "unknown_product": {
+      "message": "Product {product_id} not found."
     }
   },
   "services": {
@@ -86,6 +89,36 @@
         "receipt_id": {
           "name": "Receipt id",
           "description": "Id from the `recent` attribute of the latest receipt sensor. Empty: the latest receipt."
+        }
+      }
+    },
+    "get_product": {
+      "name": "Get product",
+      "description": "Fetches one product with its details and nutritional values.",
+      "fields": {
+        "product_id": {
+          "name": "Product id",
+          "description": "The AH product number (webshopId)."
+        }
+      }
+    },
+    "get_products": {
+      "name": "Get products",
+      "description": "Fetches several products at once by product number.",
+      "fields": {
+        "product_ids": {
+          "name": "Product ids",
+          "description": "List of AH product numbers (at most 50)."
+        }
+      }
+    },
+    "get_subcategories": {
+      "name": "Get sub-categories",
+      "description": "Returns the sub-categories of a product category, as AH sends them.",
+      "fields": {
+        "categorie_id": {
+          "name": "Category id",
+          "description": "AH category (taxonomy) id."
         }
       }
     }
