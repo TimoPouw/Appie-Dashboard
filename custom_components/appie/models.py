@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field, replace
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 ORIGIN_PRODUCT = "PRD"
@@ -16,6 +16,8 @@ ORIGIN_TEXT = "TXT"
 SOURCE_PERSONAL = "persoonlijk"
 SOURCE_PREVIOUS = "eerder_gekocht"
 SOURCE_LIST = "op_lijst"
+SOURCE_SPOTLIGHT = "spotlight"
+SOURCE_CATEGORY = "categorie"
 
 
 # --- shopping list -----------------------------------------------------------
@@ -112,6 +114,276 @@ def parse_list(raw: dict) -> list[ListItem]:
             )
         )
     return items
+
+
+def open_products(items: list[ListItem]) -> list[ListItem]:
+    """Product items still to buy (free text has no price or product id)."""
+    return [i for i in items if i.product_id and not i.checked]
+
+
+def list_signature(items: list[ListItem]) -> tuple[tuple[int, int], ...]:
+    """What the price and the suggestions depend on: open products and quantities."""
+    return tuple(sorted((i.product_id, i.quantity) for i in open_products(items)))
+
+
+@dataclass
+class ListCost:
+    """What the open products on the list cost (FetchTotalPrice)."""
+
+    without_discount: float
+    discount: float
+    products: int
+    free_text: int
+
+    @property
+    def total(self) -> float:
+        return round(self.without_discount - self.discount, 2)
+
+
+def count_free_text(items: list[ListItem]) -> int:
+    return sum(1 for i in items if not i.product_id and not i.checked)
+
+
+def parse_total_price(raw: dict, items: list[ListItem]) -> ListCost:
+    """Parse the GraphQL totalPrice response."""
+    price = (raw.get("data") or {}).get("totalPrice") or {}
+    return ListCost(
+        without_discount=round(float((price.get("withoutDiscount") or {}).get("amount") or 0), 2),
+        discount=round(float((price.get("discount") or {}).get("amount") or 0), 2),
+        products=len(open_products(items)),
+        free_text=count_free_text(items),
+    )
+
+
+@dataclass
+class Suggestion:
+    """A "vergeet niet" product card."""
+
+    product_id: int
+    title: str
+    image: str | None = None
+    size: str | None = None
+    is_bonus: bool = False
+    bonus_mechanism: str | None = None
+    price: float | None = None
+    price_before: float | None = None
+
+
+def parse_dont_forget(raw: dict) -> list[Suggestion]:
+    """Parse the dontforgetlane response (productCards)."""
+    suggestions: list[Suggestion] = []
+    for card in raw.get("productCards") or []:
+        if not card.get("webshopId"):
+            continue
+        now, before = card.get("currentPrice"), card.get("priceBeforeBonus")
+        suggestions.append(
+            Suggestion(
+                product_id=card["webshopId"],
+                title=card.get("title") or "?",
+                image=pick_image(card.get("images")),
+                size=card.get("salesUnitSize"),
+                is_bonus=bool(card.get("isBonus")),
+                bonus_mechanism=card.get("bonusMechanism") if card.get("isBonus") else None,
+                price=now if now is not None else before,
+                price_before=before if now is not None and before != now else None,
+            )
+        )
+    return suggestions
+
+
+# --- store and koopjes -----------------------------------------------------------
+
+DAY_NAMES = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+
+
+@dataclass
+class OpeningDay:
+    day: date
+    open_from: str | None = None  # "08:00"; None when closed
+    open_until: str | None = None
+
+    def window(self, tz: tzinfo | None = None) -> tuple[datetime, datetime] | None:
+        """Opening and closing moment; closing at "00:00" means midnight."""
+        if not self.open_from or not self.open_until:
+            return None
+        start = datetime.combine(self.day, _hhmm(self.open_from), tz)
+        end = datetime.combine(self.day, _hhmm(self.open_until), tz)
+        if end <= start:
+            end = datetime.combine(self.day + timedelta(days=1), _hhmm(self.open_until), tz)
+        return start, end
+
+
+def _hhmm(text: str) -> time:
+    hours, minutes = (int(part) for part in text.split(":")[:2])
+    return time(0, 0) if hours >= 24 else time(hours, minutes)
+
+
+@dataclass
+class Store:
+    """The member's favorite AH store (GetFavoriteStore)."""
+
+    id: int
+    address: str
+    store_type: str | None = None
+    opening_days: list[OpeningDay] = field(default_factory=list)
+    services: list[str] = field(default_factory=list)
+
+    def today(self, now: datetime) -> OpeningDay | None:
+        return next((d for d in self.opening_days if d.day == now.date()), None)
+
+    def is_open(self, now: datetime) -> bool:
+        for day in self.opening_days:
+            window = day.window(now.tzinfo)
+            if window and window[0] <= now < window[1]:
+                return True
+        return False
+
+    def closing_time(self, now: datetime) -> str | None:
+        """Today's closing time while the store is still to open or open today."""
+        today = self.today(now)
+        window = today.window(now.tzinfo) if today else None
+        if window is None or now >= window[1]:
+            return None
+        return today.open_until
+
+    def upcoming(self, now: datetime) -> list[dict]:
+        return [
+            {
+                "datum": d.day.isoformat(),
+                "dag": DAY_NAMES[d.day.weekday()],
+                "open": d.open_from,
+                "dicht": d.open_until,
+            }
+            for d in sorted(self.opening_days, key=lambda d: d.day)
+            if d.day >= now.date()
+        ]
+
+
+def parse_store(raw: dict) -> Store | None:
+    """Parse the GraphQL storesFavouriteStore response; None without a favorite.
+
+    A day without openingHour is taken as closed (appie-go only shows open days).
+    """
+    store = (raw.get("data") or {}).get("storesFavouriteStore")
+    if not store or not store.get("id"):
+        return None
+    addr = store.get("address") or {}
+    street = " ".join(
+        str(part) for part in (addr.get("street"), addr.get("houseNumber"), addr.get("houseNumberExtra")) if part
+    )
+    town = " ".join(str(part) for part in (addr.get("postalCode"), addr.get("city")) if part)
+    days = []
+    for row in store.get("openingDays") or []:
+        try:
+            day = date.fromisoformat(row.get("date") or "")
+        except ValueError:
+            continue
+        hours = row.get("openingHour") or {}
+        days.append(OpeningDay(day, hours.get("openFrom") or None, hours.get("openUntil") or None))
+    return Store(
+        id=int(store["id"]),
+        address=", ".join(part for part in (street, town) if part),
+        store_type=store.get("storeType"),
+        opening_days=days,
+        services=[s["code"] for s in store.get("services") or [] if s.get("code")],
+    )
+
+
+@dataclass
+class Bargain:
+    """A last-chance markdown ("koopje") in the store."""
+
+    product_id: int
+    title: str
+    size: str | None = None
+    category: str | None = None
+    markdown_type: str | None = None
+    expires: str | None = None
+    price: float | None = None
+    price_was: float | None = None
+    percentage: float | None = None
+
+    @property
+    def key(self) -> str:
+        """One markdown of one product; a new markdown later is a new koopje."""
+        return f"{self.product_id}:{self.expires}"
+
+
+def _money(value: Any) -> float | None:
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_bargains(raw: dict) -> list[Bargain]:
+    """Parse the GraphQL bargainItems response (koopjes.go)."""
+    bargains: list[Bargain] = []
+    for row in (raw.get("data") or {}).get("bargainItems") or []:
+        product = row.get("product") or {}
+        if not product.get("id"):
+            continue
+        markdown = row.get("markdown") or {}
+        price = row.get("bargainPrice") or {}
+        bargains.append(
+            Bargain(
+                product_id=int(product["id"]),
+                title=product.get("title") or "?",
+                size=product.get("salesUnitSize"),
+                category=row.get("categoryTitle"),
+                markdown_type=markdown.get("markdownType"),
+                expires=markdown.get("markdownExpirationDate"),
+                price=_money(price.get("priceNow")),
+                price_was=_money(price.get("priceWas")),
+                percentage=markdown.get("markdownPercentage"),
+            )
+        )
+    return bargains
+
+
+# --- favorite lists -------------------------------------------------------------
+
+
+@dataclass
+class FavoriteList:
+    """A favorite list ("lijstje") from lists/v3."""
+
+    id: str
+    naam: str
+    aantal: int
+    image: str | None = None
+
+
+def parse_favorite_lists(raw: list | None) -> list[FavoriteList]:
+    lists = []
+    for row in raw or []:
+        if not row.get("id"):
+            continue
+        images = [img for group in row.get("productImages") or [] for img in group or []]
+        lists.append(
+            FavoriteList(
+                id=row["id"],
+                naam=row.get("description") or "?",
+                aantal=int(row.get("itemCount") or 0),
+                image=pick_image(images, min_width=80),
+            )
+        )
+    return lists
+
+
+def find_favorite_list(lists: list[FavoriteList], wanted: str) -> FavoriteList | None:
+    """By id or by name, ignoring case."""
+    wanted = wanted.strip().lower()
+    return next((fl for fl in lists if fl.id.lower() == wanted or fl.naam.lower() == wanted), None)
+
+
+def parse_favorite_list_items(raw: dict) -> list[tuple[int, int]]:
+    """(product id, quantity) for each product on a favoriteListV2 response."""
+    found = (raw.get("data") or {}).get("favoriteListV2") or []
+    if isinstance(found, dict):
+        found = [found]
+    items = (found[0].get("items") or []) if found else []
+    return [(int(i["productId"]), max(int(i.get("quantity") or 1), 1)) for i in items if i.get("productId")]
 
 
 # --- bonus -------------------------------------------------------------------
@@ -231,6 +503,53 @@ def relevant_bonus(
     return sorted(merged.values(), key=lambda o: (not o.on_list, rank[o.source]))
 
 
+def bonus_categories(raw_metadata: dict) -> list[str]:
+    """National bonus categories of the current week (metadata tabs, as in bonus.go)."""
+    periods = raw_metadata.get("periods") or []
+    names: list[str] = []
+    for tab in (periods[0].get("tabs") or []) if periods else []:
+        for meta in tab.get("urlMetadataList") or []:
+            if meta.get("bonusType") == "NATIONAL" and meta.get("description") and meta["description"] not in names:
+                names.append(meta["description"])
+    return names
+
+
+@dataclass
+class BonusBox:
+    """The personal Bonus Box (FetchBonusBoxOffers)."""
+
+    max_activations: int | None
+    offers: list[dict]
+
+    @property
+    def activated(self) -> int:
+        return sum(1 for o in self.offers if o["activated"])
+
+
+def parse_bonus_box(raw: dict) -> BonusBox:
+    data = raw.get("data") or {}
+    bundles = data.get("bonusPersonalPromotionBundles") or []
+    offers = []
+    for promo in data.get("bonusPromotions") or []:
+        labels = promo.get("rawPromotionLabels") or []
+        price = promo.get("price") or {}
+        offers.append(
+            {
+                "id": promo.get("id"),
+                "title": promo.get("title") or "?",
+                "category": promo.get("category"),
+                "mechanism": labels[0].get("defaultDescription") if labels else None,
+                "price": (price.get("now") or {}).get("amount"),
+                "price_was": (price.get("was") or {}).get("amount"),
+                "image": pick_image(promo.get("images")),
+                "activated": promo.get("activationStatus") == "ACTIVATED",
+                "start_date": promo.get("periodStart"),
+                "end_date": promo.get("periodEnd"),
+            }
+        )
+    return BonusBox(max_activations=bundles[0].get("maximumActivations") if bundles else None, offers=offers)
+
+
 def bonus_period(raw_metadata: dict) -> tuple[str | None, str | None]:
     """Current bonus week (start, end) from bonuspage/v3/metadata."""
     periods = raw_metadata.get("periods") or []
@@ -308,6 +627,33 @@ def pos_name(name: str) -> str:
     soft = name[:1] + name[1:].lower()
     # Keep the store brand recognisable: "AH ELSTAR" -> "AH elstar".
     return "AH" + soft[2:] if name.startswith("AH ") else soft
+
+
+def receipt_view(receipt: Receipt, detail: ReceiptDetail, tz: tzinfo | None = None) -> dict[str, Any]:
+    """One receipt as the picked-receipt sensor and appie.get_receipt show it."""
+    return {
+        "receipt_id": receipt.id,
+        "datetime": receipt.local(tz).isoformat(),
+        "total": receipt.total,
+        "items": detail.items,
+        "discounts": detail.discounts,
+        "discount_total": detail.discount_total,
+        "payments": detail.payments,
+    }
+
+
+DAY_ABBR = ["ma", "di", "wo", "do", "vr", "za", "zo"]
+MONTH_ABBR = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+
+
+def receipt_label(receipt: Receipt, tz: tzinfo | None = None) -> str:
+    """'za 24 okt 2026 14:32 · € 36,16', as shown in the receipt picker."""
+    when = receipt.local(tz)
+    amount = f"{receipt.total:.2f}".replace(".", ",")
+    return (
+        f"{DAY_ABBR[when.weekday()]} {when.day} {MONTH_ABBR[when.month - 1]} {when.year} "
+        f"{when:%H:%M} · € {amount}"
+    )
 
 
 def month_total(receipts: list[Receipt], today: date, tz: tzinfo | None = None) -> float:
@@ -405,3 +751,114 @@ def build_favorites(
         if len(favorites) == limit:
             break
     return favorites
+
+
+def favorite_attributes(favorite: Favorite, list_items: list[ListItem]) -> dict[str, Any]:
+    """The attributes a "vaak gekocht" button shows, matched against the list."""
+    on_list = next((i for i in list_items if i.key == favorite.as_list_item().key), None)
+    return {
+        "rank": favorite.rank,
+        "title": favorite.title,
+        "times_bought": favorite.times,
+        "product_id": favorite.product_id,
+        "bonus": favorite.bonus_mechanism if favorite.is_bonus else None,
+        "on_list": on_list is not None and not on_list.checked,
+        "quantity_on_list": on_list.quantity if on_list and not on_list.checked else 0,
+    }
+
+
+# --- product search ------------------------------------------------------------
+
+
+@dataclass
+class SearchResult:
+    """A product from the REST search, in the shape the services return."""
+
+    product_id: int
+    title: str
+    size: str | None = None
+    price: float | None = None
+    image: str | None = None
+    is_bonus: bool = False
+    bonus_mechanism: str | None = None
+    previously_bought: bool = False
+
+    def as_dict(self) -> dict:
+        data = asdict(self)
+        data.pop("previously_bought")
+        return data
+
+
+def parse_search(raw: dict | list | None) -> list[SearchResult]:
+    """Parse GET /product/search/v2 (or a bare product list)."""
+    rows = raw.get("products") if isinstance(raw, dict) else raw
+    results: list[SearchResult] = []
+    for p in rows or []:
+        if not p.get("webshopId"):
+            continue
+        results.append(
+            SearchResult(
+                product_id=p["webshopId"],
+                title=p.get("title") or "?",
+                size=p.get("salesUnitSize"),
+                price=p.get("currentPrice") or p.get("priceBeforeBonus"),
+                image=pick_image(p.get("images")),
+                is_bonus=bool(p.get("isBonus")),
+                bonus_mechanism=p.get("bonusMechanism") if p.get("isBonus") else None,
+                previously_bought=bool(p.get("isPreviouslyBought")),
+            )
+        )
+    return results
+
+
+def parse_product_detail(raw: dict, nutrition: dict | None = None) -> dict[str, Any] | None:
+    """A product detail page (detail/v4) plus FetchProduct nutrition, for appie.get_product."""
+    card = raw.get("productCard") or {}
+    found = parse_search([card])
+    if not found:
+        return None
+    product = found[0].as_dict()
+    nutrients = (((nutrition or {}).get("data") or {}).get("product") or {}).get("tradeItem") or {}
+    product.update(
+        {
+            "brand": card.get("brand"),
+            "category": card.get("mainCategory"),
+            "subcategory": card.get("subCategory"),
+            "nutriscore": card.get("nutriscore"),
+            "orderable": card.get("isOrderable"),
+            "previously_bought": bool(card.get("isPreviouslyBought")),
+            "properties": card.get("propertyIcons") or [],
+            "description": re.sub(r"<[^>]+>", " ", card.get("descriptionHighlights") or "").strip() or None,
+            "nutrition": [
+                {"name": n.get("name"), "value": n.get("value")}
+                for block in nutrients.get("nutritions") or []
+                for n in block.get("nutrients") or []
+            ],
+        }
+    )
+    if product["description"]:
+        product["description"] = " ".join(product["description"].split())
+    return product
+
+
+MATCH_FAVORITE = "vaak_gekocht"
+MATCH_PREVIOUS = "eerder_gekocht"
+MATCH_SEARCH = "beste_zoekresultaat"
+
+
+def best_match(results: list[SearchResult], favorites: list[Favorite]) -> tuple[SearchResult, str] | None:
+    """Pick what to put on the list for a search term.
+
+    Prefer the most bought product among the results, then something bought
+    before, then simply the most relevant result.
+    """
+    if not results:
+        return None
+    rank = {f.product_id: f.rank for f in favorites if f.product_id}
+    favorite = min((r for r in results if r.product_id in rank), key=lambda r: rank[r.product_id], default=None)
+    if favorite:
+        return favorite, MATCH_FAVORITE
+    previous = next((r for r in results if r.previously_bought), None)
+    if previous:
+        return previous, MATCH_PREVIOUS
+    return results[0], MATCH_SEARCH

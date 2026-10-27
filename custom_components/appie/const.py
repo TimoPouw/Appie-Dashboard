@@ -25,10 +25,27 @@ LIST_INTERVAL = timedelta(seconds=60)
 BONUS_INTERVAL = timedelta(hours=6)
 RECEIPTS_INTERVAL = timedelta(hours=1)
 FAVORITES_INTERVAL = timedelta(hours=12)
+# Follows list changes; prices themselves change with the bonus week.
+LIST_COST_INTERVAL = timedelta(hours=6)
+# A burst of list edits (ticking off five items) costs one call, this long after the first.
+LIST_COST_COOLDOWN = 60
+# "Vergeet niet": at most once per 15 minutes after a list change, else every 6 h.
+DONT_FORGET_INTERVAL = timedelta(hours=6)
+DONT_FORGET_COOLDOWN = 15 * 60
+# Opening hours barely change; koopjes change during the day, only while open.
+STORE_INTERVAL = timedelta(hours=12)
+BARGAINS_INTERVAL = timedelta(minutes=30)
+EVENT_BARGAIN_FAVORITE = "appie_koopje_favoriet"
+FAVORITE_LISTS_INTERVAL = timedelta(minutes=30)
 
 # How many receipts to fetch per update (covers well over a month).
 RECEIPTS_PAGE_SIZE = 50
 
 # "Vaak gekocht" buttons: how many, counted over how many days of receipts.
+# Defaults; both can be changed in the options.
+CONF_FAVORITES_COUNT = "favorites_count"
+CONF_FAVORITES_DAYS = "favorites_days"
 FAVORITES_COUNT = 10
 FAVORITES_DAYS = 120
+FAVORITES_COUNT_RANGE = (10, 50)
+FAVORITES_DAYS_RANGE = (30, 365)

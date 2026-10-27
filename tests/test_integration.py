@@ -2,7 +2,6 @@
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant import config_entries
@@ -13,37 +12,8 @@ from homeassistant.data_entry_flow import FlowResultType
 from custom_components.appie.api import AppieAuthError
 from custom_components.appie.const import DOMAIN
 
-from .test_models import DETAIL, LIST, PERSONAL, PREVIOUS, RECEIPTS
-
-TOKENS = {"access_token": "12345_abc", "refresh_token": "r1", "expires_at": 4_000_000_000}
-META = {"periods": [{"bonusStartDate": "2026-10-05", "bonusEndDate": "2026-10-11"}]}
-
-
-@pytest.fixture
-def api():
-    """Patch every AppieClient call."""
-    with (
-        patch("custom_components.appie.api.AppieClient.get_list", AsyncMock(return_value=LIST)) as get_list,
-        patch("custom_components.appie.api.AppieClient.patch_list", AsyncMock()) as patch_list,
-        patch("custom_components.appie.api.AppieClient.get_bonus_metadata", AsyncMock(return_value=META)),
-        patch("custom_components.appie.api.AppieClient.get_personal_bonus", AsyncMock(return_value=PERSONAL)),
-        patch("custom_components.appie.api.AppieClient.get_previously_bought_bonus", AsyncMock(return_value=PREVIOUS)),
-        patch("custom_components.appie.api.AppieClient.get_receipts", AsyncMock(return_value=RECEIPTS)),
-        patch("custom_components.appie.api.AppieClient.get_receipt_detail", AsyncMock(return_value=DETAIL)),
-        patch("custom_components.appie.api.AppieClient.convert_pos_ids", AsyncMock(return_value={1: -1, 2: 111})),
-        patch("custom_components.appie.api.AppieClient.get_products", AsyncMock(return_value={
-            111: {"webshopId": 111, "title": "AH Roomboter", "images": []}})),
-        patch("custom_components.appie.coordinator.FAVORITES_DAYS", 100_000),
-    ):
-        yield {"get_list": get_list, "patch_list": patch_list}
-
-
-async def _setup(hass: HomeAssistant) -> MockConfigEntry:
-    entry = MockConfigEntry(domain=DOMAIN, unique_id="12345", data=TOKENS, title="Albert Heijn")
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    return entry
+from .common import TOKENS
+from .common import setup_appie as _setup
 
 
 async def test_config_flow(hass: HomeAssistant) -> None:

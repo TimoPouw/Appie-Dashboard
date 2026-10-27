@@ -1,12 +1,15 @@
 """Async client for the (unofficial) Albert Heijn mobile API.
 
 Endpoints and headers follow gwillem/appie-go (AGPL-3.0) and were checked
-against a live account.
+against a live account. Calls added later are marked in their docstring:
+(verified) when endpoint and payload are taken literally from appie-go,
+(inferred) when they rest on an assumption, which is then explained.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import re
 import time
@@ -14,6 +17,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Any
+from urllib.parse import urlencode
 
 import aiohttp
 
@@ -42,6 +46,148 @@ RECEIPT_DETAIL_QUERY = """query FetchReceipt($id: String!) {
     products { id quantity name price { amount } amount { amount } }
     discounts { name amount { amount } }
     payments { method amount { amount } }
+  }
+}"""
+
+
+# Left out of debug logging: credentials and anything that identifies the member.
+REDACT_KEYS = frozenset(
+    {
+        "access_token",
+        "refresh_token",
+        "accessToken",
+        "refreshToken",
+        "id_token",
+        "code",
+        "address",
+        "addressInvoice",
+        "street",
+        "houseNumber",
+        "houseNumberExtra",
+        "postalCode",
+        "zipCode",
+        "zipCodeExtra",
+        "geoLocation",
+        "emailAddress",
+        "phoneNumber",
+        "dateOfBirth",
+        "name",
+        "cards",
+        "memberId",
+        "analytics",
+    }
+)
+# Product and store names are fine to log; "name" is only personal on a member.
+_NAMED_THINGS = frozenset({"products", "product", "productCards", "posReceiptDetails", "result"})
+_LOG_LIMIT = 2000
+
+
+def redact(data: Any, parent: str | None = None) -> Any:
+    """Copy of an API response that is safe to put in a debug log."""
+    if isinstance(data, dict):
+        return {
+            key: "**REDACTED**"
+            if key in REDACT_KEYS and not (key == "name" and parent in _NAMED_THINGS)
+            else redact(value, key)
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [redact(value, parent) for value in data]
+    return data
+
+
+# appie-go doc/albertheijn_api.md, "FetchTotalPrice".
+TOTAL_PRICE_QUERY = """query FetchTotalPrice($products: [PriceLineItem!]!) {
+  totalPrice(products: $products) {
+    __typename
+    withoutDiscount { __typename amount }
+    discount { __typename amount }
+  }
+}"""
+
+# appie-go doc/albertheijn_api.md, "GetFavoriteStore".
+FAVORITE_STORE_QUERY = """query GetFavoriteStore {
+  storesFavouriteStore {
+    __typename
+    ...StoresFragment
+  }
+}
+fragment GeolocationFragment on GeoLocation { __typename latitude longitude }
+fragment StoresFragment on Stores {
+  __typename id
+  address { __typename street houseNumber houseNumberExtra postalCode city countryCode }
+  openingDays { __typename date openingHour { __typename openFrom openUntil } }
+  geoLocation { __typename ...GeolocationFragment }
+  phone storeType
+  services { __typename code }
+}"""
+
+# appie-go koopjes.go, bargainItemsQuery.
+BARGAINS_QUERY = """query BargainItems($storeId: String!) {
+  bargainItems(storeId: $storeId) {
+    product { id title brand salesUnitSize }
+    categoryTitle
+    markdown { markdownType markdownExpirationDate markdownPercentage }
+    stock
+    bargainPrice { priceWas priceNow }
+  }
+}"""
+
+# appie-go receipts.go, fetchPosReceiptPdfQuery.
+RECEIPT_PDF_QUERY = """query FetchPosReceiptPdf($id: String!) {
+  posReceiptPdf(id: $id) {
+    pdfBase64
+  }
+}"""
+
+# appie-go products.go, fetchProductNutritionQuery.
+NUTRITION_QUERY = """query FetchProduct($productId: Int!) {
+  product(id: $productId) {
+    id
+    tradeItem {
+      nutritions {
+        nutrients { type name value }
+      }
+    }
+  }
+}"""
+
+# appie-go doc/albertheijn_api.md, "FetchBonusBoxOffers": the operation, its
+# arguments and variables are documented, BonusPromotionCardFragment is not.
+# The selection below only uses fields from the documented example response,
+# all of which exist on Promotion in doc/graphql-schema-20260118.md.
+BONUS_BOX_QUERY = """query FetchBonusBoxOffers($filterSet: PromotionsFilterSet, $periodStart: String, \
+$periodEnd: String, $orderId: Int, $forcePromotionVisibility: Boolean = true, \
+$filterUnavailableProducts: Boolean = false, $states: [BonusSegmentState!]) {
+  bonusPersonalPromotionBundles(validOn: $periodStart) {
+    __typename maximumActivations error
+  }
+  bonusPromotions(filterSet: $filterSet input: { periodStart: $periodStart periodEnd: $periodEnd orderId: $orderId \
+filterUnavailableProducts: $filterUnavailableProducts forcePromotionVisibility: $forcePromotionVisibility \
+states: $states }) {
+    __typename id hqId title activationStatus category promotionType segmentType periodStart periodEnd
+    images { url width height }
+    rawPromotionLabels { mechanism price defaultDescription }
+    price { now { amount } was { amount } }
+  }
+}"""
+
+# appie-go shoppinglist.go (GetShoppingListItems and AddToFavoriteList).
+FAVORITE_LIST_ITEMS_QUERY = """query FavoriteListV2($ids: [String!]!) {
+  favoriteListV2(ids: $ids) {
+    id
+    description
+    totalSize
+    items { id productId quantity }
+  }
+}"""
+
+ADD_TO_FAVORITE_LIST_MUTATION = """mutation AddProductsToFavoriteList($favoriteListId: String!, \
+$products: [FavoriteListProductMutation!]!) {
+  favoriteListProductsAddV2(id: $favoriteListId, products: $products) {
+    __typename
+    status
+    errorMessage
   }
 }"""
 
@@ -168,8 +314,12 @@ class AppieClient:
                         text = await resp.text()
                         raise AppieError(f"{method} {path}: HTTP {resp.status} {text[:200]}")
                     text = await resp.text()
-                    _LOGGER.debug("%s %s -> %s", method, path, resp.status)
-                    return await resp.json(content_type=None) if text else None
+                    data = await resp.json(content_type=None) if text else None
+                    if _LOGGER.isEnabledFor(logging.DEBUG):
+                        _LOGGER.debug(
+                            "%s %s -> %s %s", method, path.split("?")[0], resp.status, str(redact(data))[:_LOG_LIMIT]
+                        )
+                    return data
             except asyncio.TimeoutError as err:
                 # AH occasionally stalls a single request; one retry is enough.
                 if attempt == 2:
@@ -192,6 +342,35 @@ class AppieClient:
     async def patch_list(self, items: list[dict]) -> None:
         await self._request("PATCH", "/mobile-services/shoppinglist/v2/items", {"items": items})
 
+    # favorite lists ("lijstjes")
+
+    async def get_favorite_lists(self) -> list[dict]:
+        """All favorite lists (v3). (verified)
+
+        GET /mobile-services/lists/v3/lists?productId=..; AH requires a productId
+        but returns all lists whatever it is, appie-go passes 1.
+        """
+        return await self._request("GET", "/mobile-services/lists/v3/lists?productId=1") or []
+
+    async def get_favorite_list_items(self, list_id: str) -> dict:
+        """One favorite list with its items: GraphQL favoriteListV2. (verified)
+
+        Query from appie-go shoppinglist.go; list ids are sent upper-case there.
+        """
+        return await self._graphql(FAVORITE_LIST_ITEMS_QUERY, {"ids": [list_id.upper()]})
+
+    async def add_to_favorite_list(self, list_id: str, products: list[dict[str, int]]) -> None:
+        """Add products to a favorite list: AddProductsToFavoriteList. (verified)
+
+        products: [{"productId", "quantity"}], as appie-go AddToFavoriteList sends.
+        """
+        data = await self._graphql(
+            ADD_TO_FAVORITE_LIST_MUTATION, {"favoriteListId": list_id.upper(), "products": products}
+        )
+        result = (data.get("data") or {}).get("favoriteListProductsAddV2") or {}
+        if result.get("status") != "SUCCESS":
+            raise AppieError(f"add to favorite list: {result.get('errorMessage') or result.get('status')}")
+
     # bonus
 
     async def get_bonus_metadata(self) -> dict:
@@ -206,6 +385,47 @@ class AppieClient:
             f"/mobile-services/bonuspage/v2/section/previously-bought?application={APPLICATION}&date={day.isoformat()}",
         )
 
+    async def get_spotlight_bonus(self, day: date) -> dict:
+        """This week's highlighted bonus. (verified)
+
+        GET /mobile-services/bonuspage/v2/section/spotlight, as in appie-go bonus.go.
+        """
+        return await self._request(
+            "GET",
+            f"/mobile-services/bonuspage/v2/section/spotlight?application={APPLICATION}&date={day.isoformat()}",
+        )
+
+    async def get_bonus_category(self, category: str, day: date) -> dict:
+        """All national bonus in one category. (verified)
+
+        GET /mobile-services/bonuspage/v2/section with the parameters from appie-go
+        bonus.go (getBonusSection); category names come from the metadata tabs.
+        """
+        params = urlencode(
+            {"application": APPLICATION, "date": day.isoformat(), "promotionType": "NATIONAL", "category": category}
+        )
+        return await self._request("GET", f"/mobile-services/bonuspage/v2/section?{params}")
+
+    async def get_bonus_box(self, period_start: str, period_end: str) -> dict:
+        """Personal Bonus Box offers: GraphQL FetchBonusBoxOffers. (inferred)
+
+        Operation, arguments and variables are from appie-go's API doc. The doc
+        leaves out BonusPromotionCardFragment, so the fields are picked from its
+        example response (checked against the schema dump). If AH rejects the
+        selection, only the Bonus Box sensor goes unavailable.
+        """
+        return await self._graphql(
+            BONUS_BOX_QUERY,
+            {
+                "filterSet": "APP_BONUS_BOX",
+                "filterUnavailableProducts": False,
+                "forcePromotionVisibility": True,
+                "periodStart": period_start,
+                "periodEnd": period_end,
+                "states": ["ACTIVATABLE", "ACTIVATED"],
+            },
+        )
+
     # receipts
 
     async def get_receipts(self, offset: int, limit: int) -> dict:
@@ -213,6 +433,20 @@ class AppieClient:
 
     async def get_receipt_detail(self, receipt_id: str) -> dict:
         return await self._graphql(RECEIPT_DETAIL_QUERY, {"id": receipt_id})
+
+    async def get_receipt_pdf(self, receipt_id: str) -> bytes:
+        """The receipt as AH renders it: GraphQL FetchPosReceiptPdf. (verified)
+
+        Query from appie-go receipts.go (GetReceiptPDF); the PDF comes base64-encoded.
+        """
+        data = await self._graphql(RECEIPT_PDF_QUERY, {"id": receipt_id})
+        encoded = ((data.get("data") or {}).get("posReceiptPdf") or {}).get("pdfBase64")
+        if not encoded:
+            raise AppieError(f"no pdf for receipt {receipt_id}")
+        try:
+            return base64.b64decode(encoded)
+        except ValueError as err:
+            raise AppieError(f"receipt pdf: {err}") from err
 
     # products
 
@@ -234,3 +468,74 @@ class AppieClient:
         if isinstance(rows, dict):
             rows = rows.get("products") or []
         return {p["webshopId"]: p for p in rows or [] if p.get("webshopId")}
+
+    async def get_product_detail(self, product_id: int) -> dict:
+        """One product's detail page. (verified)
+
+        GET /mobile-services/product/detail/v4/fir/<webshopId>, as in appie-go
+        products.go (GetProduct); the product itself is under productCard.
+        """
+        return await self._request("GET", f"/mobile-services/product/detail/v4/fir/{int(product_id)}")
+
+    async def get_nutrition(self, product_id: int) -> dict:
+        """Nutritional values via the tradeItem: GraphQL FetchProduct. (verified)"""
+        return await self._graphql(NUTRITION_QUERY, {"productId": int(product_id)})
+
+    async def get_subcategories(self, category_id: int) -> Any:
+        """Sub-categories of a product category. (verified endpoint, inferred response)
+
+        GET /mobile-services/v1/product-shelves/categories/<id>/sub-categories is
+        in appie-go's API doc, but without a response example; the answer is
+        passed on as AH sends it.
+        """
+        path = f"/mobile-services/v1/product-shelves/categories/{int(category_id)}/sub-categories"
+        return await self._request("GET", path)
+
+    async def search_products(self, query: str, size: int = 10) -> dict:
+        """Product search by text. (verified)
+
+        GET /mobile-services/product/search/v2?query=..&page=0&size=..&sortOn=RELEVANCE,
+        as in appie-go products.go (SearchProductsFiltered). The REST search is the
+        one that returns bonusMechanism; sponsored products may be mixed in.
+        """
+        params = urlencode({"query": query, "page": 0, "size": size, "sortOn": "RELEVANCE"})
+        return await self._request("GET", f"/mobile-services/product/search/v2?{params}")
+
+    # list extras
+
+    async def get_total_price(self, products: list[dict[str, int]]) -> dict:
+        """Price of products incl. bonus discount: GraphQL FetchTotalPrice. (verified)
+
+        products: [{"id": webshopId, "quantity": n}], as in appie-go's API doc.
+        The price to pay is withoutDiscount.amount - discount.amount.
+        """
+        return await self._graphql(TOTAL_PRICE_QUERY, {"products": products})
+
+    async def get_dont_forget(self, basket: list[dict[str, int]], limit: int = 7) -> dict:
+        """The app's "vergeet niet" lane for the list. (verified)
+
+        POST /mobile-services/v2/recommendations/dontforgetlane with the body from
+        appie-go's API doc; basket: [{"quantity", "position", "productId"}].
+        """
+        body = {
+            "positiveCmOnly": True,
+            "offset": 0,
+            "usecaseId": "app_mylist",
+            "basketItems": basket,
+            "limit": limit,
+        }
+        return await self._request("POST", "/mobile-services/v2/recommendations/dontforgetlane", body)
+
+    # store
+
+    async def get_favorite_store(self) -> dict:
+        """The member's own store: GraphQL GetFavoriteStore. (verified)"""
+        return await self._graphql(FAVORITE_STORE_QUERY, {})
+
+    async def get_bargains(self, store_id: int) -> dict:
+        """Last-chance markdowns ("koopjes") in a store: GraphQL bargainItems. (verified)
+
+        Query and variables as in appie-go koopjes.go (GetBargains); the store id
+        is passed as a string there, so here too.
+        """
+        return await self._graphql(BARGAINS_QUERY, {"storeId": str(store_id)})

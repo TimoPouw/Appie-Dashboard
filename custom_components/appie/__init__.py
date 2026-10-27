@@ -6,20 +6,41 @@ from typing import Any
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import AppieClient
-from .const import CONF_ACCESS_TOKEN, CONF_EXPIRES_AT, CONF_REFRESH_TOKEN
+from .const import CONF_ACCESS_TOKEN, CONF_EXPIRES_AT, CONF_REFRESH_TOKEN, DOMAIN
 from .coordinator import (
     AppieConfigEntry,
     AppieData,
+    BargainsCoordinator,
+    BonusBoxCoordinator,
     BonusCoordinator,
+    DontForgetCoordinator,
+    FavoriteListsCoordinator,
     FavoritesCoordinator,
     ListCoordinator,
+    ListCostCoordinator,
     ReceiptsCoordinator,
+    ReceiptViewerCoordinator,
+    SpotlightCoordinator,
+    StoreCoordinator,
 )
+from .receipt_pdf import ReceiptPdfView
+from .services import async_setup_services
 
-PLATFORMS = [Platform.BUTTON, Platform.SENSOR, Platform.TODO]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SELECT, Platform.SENSOR, Platform.TODO]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the services and the receipt PDF view."""
+    async_setup_services(hass)
+    hass.http.register_view(ReceiptPdfView())
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> bool:
@@ -50,14 +71,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     bonus = BonusCoordinator(hass, entry, client, shopping_list)
     receipts = ReceiptsCoordinator(hass, entry, client)
     favorites = FavoritesCoordinator(hass, entry, client)
+    list_cost = ListCostCoordinator(hass, entry, client, shopping_list)
+    dont_forget = DontForgetCoordinator(hass, entry, client, shopping_list)
+    store = StoreCoordinator(hass, entry, client)
+    bargains = BargainsCoordinator(hass, entry, client, store, favorites)
+    receipt_viewer = ReceiptViewerCoordinator(hass, entry, client, receipts)
+    spotlight = SpotlightCoordinator(hass, entry, client)
+    bonus_box = BonusBoxCoordinator(hass, entry, client, bonus)
+    favorite_lists = FavoriteListsCoordinator(hass, entry, client)
 
     # Sequential on purpose: the first call may refresh the token.
     await shopping_list.async_config_entry_first_refresh()
     await bonus.async_config_entry_first_refresh()
     await receipts.async_config_entry_first_refresh()
+    # Extras: a failure here leaves their entities unavailable, not the whole integration.
+    await list_cost.async_refresh()
+    await dont_forget.async_refresh()
+    await store.async_refresh()
+    await bargains.async_refresh()
+    # Starts on the latest receipt, which the receipts coordinator already has: no call.
+    await receipt_viewer.async_refresh()
+    await spotlight.async_refresh()
+    await bonus_box.async_refresh()
+    await favorite_lists.async_refresh()
 
-    entry.async_on_unload(shopping_list.async_add_listener(bonus.list_changed))
-    entry.runtime_data = AppieData(client, shopping_list, bonus, receipts, favorites)
+    for follower in (bonus, list_cost, dont_forget):
+        entry.async_on_unload(shopping_list.async_add_listener(follower.list_changed))
+    entry.async_on_unload(favorites.async_add_listener(bargains.favorites_changed))
+    entry.async_on_unload(receipts.async_add_listener(receipt_viewer.receipts_changed))
+    entry.runtime_data = AppieData(
+        client=client,
+        shopping_list=shopping_list,
+        bonus=bonus,
+        receipts=receipts,
+        favorites=favorites,
+        list_cost=list_cost,
+        dont_forget=dont_forget,
+        store=store,
+        bargains=bargains,
+        receipt_viewer=receipt_viewer,
+        spotlight=spotlight,
+        bonus_box=bonus_box,
+        favorite_lists=favorite_lists,
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.
     entry.async_create_background_task(hass, favorites.async_refresh(), f"{entry.entry_id} favorites")

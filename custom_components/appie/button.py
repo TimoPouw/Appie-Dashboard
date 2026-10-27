@@ -7,14 +7,14 @@ from typing import Any
 from homeassistant.components.button import ButtonEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import AppieError
-from .const import FAVORITES_COUNT
 from .coordinator import AppieConfigEntry, FavoritesCoordinator, ListCoordinator
 from .entity import device_info
-from .models import Favorite
+from .models import Favorite, favorite_attributes
 
 
 async def async_setup_entry(
@@ -22,7 +22,21 @@ async def async_setup_entry(
     entry: AppieConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities(FavoriteButton(entry, rank) for rank in range(1, FAVORITES_COUNT + 1))
+    count = entry.runtime_data.favorites.count
+    _remove_surplus_buttons(hass, entry, count)
+    async_add_entities(FavoriteButton(entry, rank) for rank in range(1, count + 1))
+
+
+def _remove_surplus_buttons(hass: HomeAssistant, entry: AppieConfigEntry, count: int) -> None:
+    """Drop the buttons above the configured count (after lowering it)."""
+    registry = er.async_get(hass)
+    prefix = f"{entry.unique_id}_vaak_gekocht_"
+    for reg in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if reg.domain != "button" or not reg.unique_id.startswith(prefix):
+            continue
+        rank = reg.unique_id.removeprefix(prefix)
+        if rank.isdigit() and int(rank) > count:
+            registry.async_remove(reg.entity_id)
 
 
 class FavoriteButton(CoordinatorEntity[FavoritesCoordinator], ButtonEntity):
@@ -69,16 +83,7 @@ class FavoriteButton(CoordinatorEntity[FavoritesCoordinator], ButtonEntity):
         favorite = self._favorite
         if favorite is None:
             return {"rank": self._rank}
-        on_list = next((i for i in self._list.data or [] if i.key == favorite.as_list_item().key), None)
-        return {
-            "rank": self._rank,
-            "title": favorite.title,
-            "times_bought": favorite.times,
-            "product_id": favorite.product_id,
-            "bonus": favorite.bonus_mechanism if favorite.is_bonus else None,
-            "on_list": on_list is not None and not on_list.checked,
-            "quantity_on_list": on_list.quantity if on_list and not on_list.checked else 0,
-        }
+        return favorite_attributes(favorite, self._list.data or [])
 
     async def async_press(self) -> None:
         favorite = self._favorite

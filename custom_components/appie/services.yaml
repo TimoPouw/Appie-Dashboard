@@ -1,0 +1,119 @@
+search:
+  fields:
+    zoekterm:
+      required: true
+      example: halfvolle melk
+      selector:
+        text:
+    aantal:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: box
+
+add_product:
+  fields:
+    zoekterm:
+      required: true
+      example: halfvolle melk
+      selector:
+        text:
+    aantal:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 99
+          mode: box
+
+get_receipt:
+  fields:
+    receipt_id:
+      required: false
+      example: "AH-1234567890"
+      selector:
+        text:
+
+get_product:
+  fields:
+    product_id:
+      required: true
+      example: 441199
+      selector:
+        number:
+          min: 1
+          max: 99999999
+          mode: box
+
+get_products:
+  fields:
+    product_ids:
+      required: true
+      example: [441199, 111]
+      selector:
+        object:
+
+get_subcategories:
+  fields:
+    categorie_id:
+      required: true
+      example: 6401
+      selector:
+        number:
+          min: 1
+          max: 99999999
+          mode: box
+
+bonus:
+  fields:
+    categorie:
+      required: false
+      example: Groente, aardappelen
+      selector:
+        text:
+
+get_favorite_list:
+  fields:
+    lijst:
+      required: true
+      example: Weekboodschappen
+      selector:
+        text:
+
+add_to_favorite_list:
+  fields:
+    lijst:
+      required: true
+      example: Weekboodschappen
+      selector:
+        text:
+    zoekterm:
+      required: false
+      example: halfvolle melk
+      selector:
+        text:
+    product_id:
+      required: false
+      example: 441199
+      selector:
+        number:
+          min: 1
+          max: 99999999
+          mode: box
+    aantal:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 99
+          mode: box
+
+favorite_list_to_list:
+  fields:
+    lijst:
+      required: true
+      example: Weekboodschappen
+      selector:
+        text:

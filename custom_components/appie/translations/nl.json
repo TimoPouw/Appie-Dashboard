@@ -26,5 +26,159 @@
       "reauth_successful": "Weer ingelogd.",
       "wrong_account": "Dat is een ander AH-account dan eerst."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Albert Heijn-opties",
+        "description": "Vaak gekocht: hoeveel producten je wilt zien, en over hoeveel dagen aan kassabonnen we tellen. Opslaan herlaadt de integratie.",
+        "data": {
+          "favorites_count": "Aantal producten",
+          "favorites_days": "Dagen aan kassabonnen"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "De Albert Heijn-integratie is niet geladen."
+    },
+    "no_product": {
+      "message": "Geen product gevonden voor \"{query}\"."
+    },
+    "unknown_receipt": {
+      "message": "Kassabon {receipt_id} staat niet tussen je recente bonnen."
+    },
+    "unknown_product": {
+      "message": "Product {product_id} niet gevonden."
+    },
+    "unknown_category": {
+      "message": "Onbekende bonuscategorie \"{category}\". Kies uit: {categories}."
+    },
+    "unknown_list": {
+      "message": "Geen favoriete lijst \"{list}\". Je lijsten: {lists}."
+    }
+  },
+  "services": {
+    "search": {
+      "name": "Producten zoeken",
+      "description": "Zoekt in het AH-assortiment en geeft de gevonden producten terug.",
+      "fields": {
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Waar je naar zoekt, bijvoorbeeld \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel producten je terug wilt (1 tot 50)."
+        }
+      }
+    },
+    "add_product": {
+      "name": "Product op de lijst zetten",
+      "description": "Zoekt een product en zet de beste match als echt product op je lijst. Wat je vaak koopt gaat voor.",
+      "fields": {
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Wat je op de lijst wilt, bijvoorbeeld \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel stuks (standaard 1)."
+        }
+      }
+    },
+    "get_receipt": {
+      "name": "Kassabon ophalen",
+      "description": "Haalt een van je recente kassabonnen op, met alle regels en een link naar de PDF. Er wordt niets bewaard.",
+      "fields": {
+        "receipt_id": {
+          "name": "Kassabon-id",
+          "description": "Id uit het attribuut `recent` van de sensor Laatste kassabon. Leeg: je laatste bon."
+        }
+      }
+    },
+    "get_product": {
+      "name": "Product ophalen",
+      "description": "Haalt één product op, met details en voedingswaarden.",
+      "fields": {
+        "product_id": {
+          "name": "Productnummer",
+          "description": "Het AH-productnummer (webshopId)."
+        }
+      }
+    },
+    "get_products": {
+      "name": "Producten ophalen",
+      "description": "Haalt meerdere producten tegelijk op via hun productnummer.",
+      "fields": {
+        "product_ids": {
+          "name": "Productnummers",
+          "description": "Lijst met AH-productnummers (maximaal 50)."
+        }
+      }
+    },
+    "get_subcategories": {
+      "name": "Subcategorieën ophalen",
+      "description": "Geeft de subcategorieën van een productcategorie terug, zoals AH ze stuurt.",
+      "fields": {
+        "categorie_id": {
+          "name": "Categorie-id",
+          "description": "Het AH-categorienummer (taxonomy-id)."
+        }
+      }
+    },
+    "bonus": {
+      "name": "Bonus per categorie",
+      "description": "Zonder categorie: de bonuscategorieën van deze week. Met een categorie: alle bonusaanbiedingen daarin.",
+      "fields": {
+        "categorie": {
+          "name": "Categorie",
+          "description": "Een categorienaam uit de lijst die je zonder categorie terugkrijgt."
+        }
+      }
+    },
+    "get_favorite_list": {
+      "name": "Favoriete lijst ophalen",
+      "description": "Geeft de producten op een van je favoriete lijsten terug.",
+      "fields": {
+        "lijst": {
+          "name": "Lijst",
+          "description": "Naam of id van de favoriete lijst."
+        }
+      }
+    },
+    "add_to_favorite_list": {
+      "name": "Op favoriete lijst zetten",
+      "description": "Zet een product op een van je favoriete lijsten, via een zoekterm of productnummer.",
+      "fields": {
+        "lijst": {
+          "name": "Lijst",
+          "description": "Naam of id van de favoriete lijst."
+        },
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Wat je wilt toevoegen; wat je vaak koopt gaat voor."
+        },
+        "product_id": {
+          "name": "Productnummer",
+          "description": "AH-productnummer, in plaats van een zoekterm."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel stuks (standaard 1)."
+        }
+      }
+    },
+    "favorite_list_to_list": {
+      "name": "Favoriete lijst naar boodschappenlijst",
+      "description": "Zet alle producten van een favoriete lijst op je boodschappenlijst. Wat er al op staat wordt alleen aangevuld.",
+      "fields": {
+        "lijst": {
+          "name": "Lijst",
+          "description": "Naam of id van de favoriete lijst."
+        }
+      }
+    }
   }
 }

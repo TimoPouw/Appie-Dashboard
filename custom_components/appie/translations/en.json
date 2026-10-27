@@ -26,5 +26,159 @@
       "reauth_successful": "Logged in again.",
       "wrong_account": "That is a different AH account than before."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Albert Heijn options",
+        "description": "\"Vaak gekocht\": how many products to show, counted over how many days of receipts. Saving reloads the integration.",
+        "data": {
+          "favorites_count": "Number of products",
+          "favorites_days": "Days of receipts to count"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "The Albert Heijn integration is not loaded."
+    },
+    "no_product": {
+      "message": "No product found for \"{query}\"."
+    },
+    "unknown_receipt": {
+      "message": "Receipt {receipt_id} is not among your recent receipts."
+    },
+    "unknown_product": {
+      "message": "Product {product_id} not found."
+    },
+    "unknown_category": {
+      "message": "Unknown bonus category \"{category}\". Choose from: {categories}."
+    },
+    "unknown_list": {
+      "message": "No favorite list \"{list}\". Your lists: {lists}."
+    }
+  },
+  "services": {
+    "search": {
+      "name": "Search products",
+      "description": "Searches the AH product range and returns the products found.",
+      "fields": {
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to search for, e.g. \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Number",
+          "description": "How many products to return (1 to 50)."
+        }
+      }
+    },
+    "add_product": {
+      "name": "Add product to list",
+      "description": "Searches for a product and puts the best match on the shopping list as a real product. Products you often buy win.",
+      "fields": {
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to add, e.g. \"halfvolle melk\"."
+        },
+        "aantal": {
+          "name": "Quantity",
+          "description": "How many to add (default 1)."
+        }
+      }
+    },
+    "get_receipt": {
+      "name": "Get receipt",
+      "description": "Fetches one of your recent receipts with all its lines and a link to the PDF. Nothing is stored.",
+      "fields": {
+        "receipt_id": {
+          "name": "Receipt id",
+          "description": "Id from the `recent` attribute of the latest receipt sensor. Empty: the latest receipt."
+        }
+      }
+    },
+    "get_product": {
+      "name": "Get product",
+      "description": "Fetches one product with its details and nutritional values.",
+      "fields": {
+        "product_id": {
+          "name": "Product id",
+          "description": "The AH product number (webshopId)."
+        }
+      }
+    },
+    "get_products": {
+      "name": "Get products",
+      "description": "Fetches several products at once by product number.",
+      "fields": {
+        "product_ids": {
+          "name": "Product ids",
+          "description": "List of AH product numbers (at most 50)."
+        }
+      }
+    },
+    "get_subcategories": {
+      "name": "Get sub-categories",
+      "description": "Returns the sub-categories of a product category, as AH sends them.",
+      "fields": {
+        "categorie_id": {
+          "name": "Category id",
+          "description": "AH category (taxonomy) id."
+        }
+      }
+    },
+    "bonus": {
+      "name": "Bonus per category",
+      "description": "Without a category: the bonus categories of this week. With a category: all bonus offers in it.",
+      "fields": {
+        "categorie": {
+          "name": "Category",
+          "description": "A category name from the list this service returns without one."
+        }
+      }
+    },
+    "get_favorite_list": {
+      "name": "Get favorite list",
+      "description": "Returns the products on one of your favorite lists.",
+      "fields": {
+        "lijst": {
+          "name": "List",
+          "description": "Name or id of the favorite list."
+        }
+      }
+    },
+    "add_to_favorite_list": {
+      "name": "Add to favorite list",
+      "description": "Adds a product to one of your favorite lists, by search term or product number.",
+      "fields": {
+        "lijst": {
+          "name": "List",
+          "description": "Name or id of the favorite list."
+        },
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to add; products you often buy win."
+        },
+        "product_id": {
+          "name": "Product id",
+          "description": "AH product number, instead of a search term."
+        },
+        "aantal": {
+          "name": "Quantity",
+          "description": "How many (default 1)."
+        }
+      }
+    },
+    "favorite_list_to_list": {
+      "name": "Favorite list to shopping list",
+      "description": "Puts all products of a favorite list on the shopping list. Products already on it are only topped up.",
+      "fields": {
+        "lijst": {
+          "name": "List",
+          "description": "Name or id of the favorite list."
+        }
+      }
+    }
   }
 }
