@@ -25,6 +25,10 @@ LIST_INTERVAL = timedelta(seconds=60)
 BONUS_INTERVAL = timedelta(hours=6)
 RECEIPTS_INTERVAL = timedelta(hours=1)
 FAVORITES_INTERVAL = timedelta(hours=12)
+# Follows list changes; prices themselves change with the bonus week.
+LIST_COST_INTERVAL = timedelta(hours=6)
+# A burst of list edits (ticking off five items) costs one call, this long after the first.
+LIST_COST_COOLDOWN = 60
 
 # How many receipts to fetch per update (covers well over a month).
 RECEIPTS_PAGE_SIZE = 50

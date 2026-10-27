@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from .common import META, SEARCH
+from .common import META, SEARCH, TOTAL_PRICE
 from .test_models import DETAIL, LIST, PERSONAL, PREVIOUS, RECEIPTS
 
 
@@ -29,6 +29,7 @@ def api():
         "convert_pos_ids": AsyncMock(return_value={1: -1, 2: 111}),
         "get_products": AsyncMock(return_value={111: {"webshopId": 111, "title": "AH Roomboter", "images": []}}),
         "search_products": AsyncMock(return_value=SEARCH),
+        "get_total_price": AsyncMock(return_value=TOTAL_PRICE),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]
     patches.append(patch("custom_components.appie.coordinator.FAVORITES_DAYS", 100_000))

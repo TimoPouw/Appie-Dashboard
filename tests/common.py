@@ -23,6 +23,9 @@ SEARCH = {
     "page": {"number": 0, "size": 3, "totalElements": 3, "totalPages": 1},
 }
 
+# GraphQL FetchTotalPrice, the response from appie-go's API doc.
+TOTAL_PRICE = {"data": {"totalPrice": {"withoutDiscount": {"amount": 5.58}, "discount": {"amount": 0.38}}}}
+
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(

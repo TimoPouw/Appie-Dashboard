@@ -11,7 +11,13 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .coordinator import AppieConfigEntry, BonusCoordinator, FavoritesCoordinator, ReceiptsCoordinator
+from .coordinator import (
+    AppieConfigEntry,
+    BonusCoordinator,
+    FavoritesCoordinator,
+    ListCostCoordinator,
+    ReceiptsCoordinator,
+)
 from .entity import device_info
 from .models import SOURCE_PERSONAL, favorite_attributes
 
@@ -30,6 +36,7 @@ async def async_setup_entry(
             LatestReceiptSensor(entry, data.receipts),
             MonthSpendSensor(entry, data.receipts),
             FavoritesSensor(entry, data.favorites),
+            ListCostSensor(entry, data.list_cost),
         ]
     )
 
@@ -155,4 +162,31 @@ class FavoritesSensor(_Base, SensorEntity):
             "producten": [
                 {**favorite_attributes(f, items), "entity_picture": f.image} for f in self.coordinator.data or []
             ]
+        }
+
+
+class ListCostSensor(_Base, SensorEntity):
+    """What the products on the list cost, after bonus discount."""
+
+    _attr_icon = "mdi:cart-variant"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "EUR"
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: ListCostCoordinator) -> None:
+        super().__init__(entry, coordinator, "lijst_kosten", "Lijst kosten")
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.data.total if self.coordinator.data else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        cost = self.coordinator.data
+        if cost is None:
+            return {}
+        return {
+            "zonder_korting": cost.without_discount,
+            "korting": cost.discount,
+            "aantal_producten": cost.products,
+            "aantal_vrije_tekst": cost.free_text,
         }

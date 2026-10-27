@@ -114,6 +114,45 @@ def parse_list(raw: dict) -> list[ListItem]:
     return items
 
 
+def open_products(items: list[ListItem]) -> list[ListItem]:
+    """Product items still to buy (free text has no price or product id)."""
+    return [i for i in items if i.product_id and not i.checked]
+
+
+def list_signature(items: list[ListItem]) -> tuple[tuple[int, int], ...]:
+    """What the price and the suggestions depend on: open products and quantities."""
+    return tuple(sorted((i.product_id, i.quantity) for i in open_products(items)))
+
+
+@dataclass
+class ListCost:
+    """What the open products on the list cost (FetchTotalPrice)."""
+
+    without_discount: float
+    discount: float
+    products: int
+    free_text: int
+
+    @property
+    def total(self) -> float:
+        return round(self.without_discount - self.discount, 2)
+
+
+def count_free_text(items: list[ListItem]) -> int:
+    return sum(1 for i in items if not i.product_id and not i.checked)
+
+
+def parse_total_price(raw: dict, items: list[ListItem]) -> ListCost:
+    """Parse the GraphQL totalPrice response."""
+    price = (raw.get("data") or {}).get("totalPrice") or {}
+    return ListCost(
+        without_discount=round(float((price.get("withoutDiscount") or {}).get("amount") or 0), 2),
+        discount=round(float((price.get("discount") or {}).get("amount") or 0), 2),
+        products=len(open_products(items)),
+        free_text=count_free_text(items),
+    )
+
+
 # --- bonus -------------------------------------------------------------------
 
 

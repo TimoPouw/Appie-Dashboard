@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -22,6 +23,8 @@ from .const import (
     FAVORITES_COUNT,
     FAVORITES_DAYS,
     FAVORITES_INTERVAL,
+    LIST_COST_COOLDOWN,
+    LIST_COST_INTERVAL,
     LIST_INTERVAL,
     RECEIPTS_INTERVAL,
     RECEIPTS_PAGE_SIZE,
@@ -31,11 +34,16 @@ from .models import (
     SOURCE_PREVIOUS,
     BonusOffer,
     Favorite,
+    ListCost,
     ListItem,
     Receipt,
     ReceiptDetail,
     bonus_period,
     build_favorites,
+    count_free_text,
+    list_signature,
+    open_products,
+    parse_total_price,
     month_total,
     parse_bonus_section,
     parse_list,
@@ -61,6 +69,7 @@ class AppieData:
     bonus: BonusCoordinator
     receipts: ReceiptsCoordinator
     favorites: FavoritesCoordinator
+    list_cost: ListCostCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -69,9 +78,11 @@ type AppieConfigEntry = ConfigEntry[AppieData]
 class _AppieCoordinator[T](DataUpdateCoordinator[T]):
     """Shared error handling."""
 
-    def __init__(self, hass: HomeAssistant, entry: AppieConfigEntry, client: AppieClient, name: str, interval) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: AppieConfigEntry, client: AppieClient, name: str, interval, **kwargs
+    ) -> None:
         super().__init__(
-            hass, _LOGGER, config_entry=entry, name=f"{DOMAIN} {name}", update_interval=interval
+            hass, _LOGGER, config_entry=entry, name=f"{DOMAIN} {name}", update_interval=interval, **kwargs
         )
         self.client = client
 
@@ -232,3 +243,66 @@ class FavoritesCoordinator(_AppieCoordinator[list[Favorite]]):
         webshop_ids = await self.client.convert_pos_ids([pos_id for pos_id, _, _ in candidates])
         products = await self.client.get_products(list(webshop_ids.values()))
         return build_favorites(candidates, webshop_ids, products, self.count)
+
+
+class _ListDrivenCoordinator[T](_AppieCoordinator[T]):
+    """Data that depends on the products on the list.
+
+    The list is polled every minute; only a change in the open products or
+    their quantities triggers a new call, and the debouncer folds a burst of
+    edits into one.
+    """
+
+    def __init__(
+        self, hass, entry, client, shopping_list: ListCoordinator, name: str, interval, cooldown: float, immediate: bool
+    ) -> None:
+        super().__init__(
+            hass,
+            entry,
+            client,
+            name,
+            interval,
+            request_refresh_debouncer=Debouncer(hass, _LOGGER, cooldown=cooldown, immediate=immediate),
+        )
+        self._list = shopping_list
+        self._signature: tuple | None = None
+
+    async def _fetch(self) -> T:
+        items = list(self._list.data or [])
+        # Set before the call: a failing call is retried on the interval, not every minute.
+        self._signature = list_signature(items)
+        return await self._fetch_for(items)
+
+    async def _fetch_for(self, items: list[ListItem]) -> T:
+        raise NotImplementedError
+
+    def list_changed(self) -> None:
+        if list_signature(self._list.data or []) != self._signature:
+            self.hass.async_create_task(self.async_request_refresh())
+        elif self.data is not None:
+            self._local_update(self._list.data or [])
+
+    def _local_update(self, items: list[ListItem]) -> None:
+        """React to list changes that need no call (free text, ticked items)."""
+
+
+class ListCostCoordinator(_ListDrivenCoordinator[ListCost]):
+    """What the products on the list cost, after bonus (FetchTotalPrice)."""
+
+    def __init__(self, hass, entry, client, shopping_list: ListCoordinator) -> None:
+        super().__init__(
+            hass, entry, client, shopping_list, "lijst kosten", LIST_COST_INTERVAL, LIST_COST_COOLDOWN, False
+        )
+
+    async def _fetch_for(self, items: list[ListItem]) -> ListCost:
+        products = [{"id": i.product_id, "quantity": i.quantity} for i in open_products(items)]
+        if not products:
+            return ListCost(0.0, 0.0, 0, count_free_text(items))
+        return parse_total_price(await self.client.get_total_price(products) or {}, items)
+
+    def _local_update(self, items: list[ListItem]) -> None:
+        free_text = count_free_text(items)
+        if free_text != self.data.free_text:
+            # Not async_set_updated_data: that would restart the 6 h timer.
+            self.data = replace(self.data, free_text=free_text)
+            self.async_update_listeners()

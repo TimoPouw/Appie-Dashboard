@@ -95,6 +95,16 @@ def redact(data: Any, parent: str | None = None) -> Any:
     return data
 
 
+# appie-go doc/albertheijn_api.md, "FetchTotalPrice".
+TOTAL_PRICE_QUERY = """query FetchTotalPrice($products: [PriceLineItem!]!) {
+  totalPrice(products: $products) {
+    __typename
+    withoutDiscount { __typename amount }
+    discount { __typename amount }
+  }
+}"""
+
+
 class AppieError(Exception):
     """API call failed."""
 
@@ -297,3 +307,13 @@ class AppieClient:
         """
         params = urlencode({"query": query, "page": 0, "size": size, "sortOn": "RELEVANCE"})
         return await self._request("GET", f"/mobile-services/product/search/v2?{params}")
+
+    # list extras
+
+    async def get_total_price(self, products: list[dict[str, int]]) -> dict:
+        """Price of products incl. bonus discount: GraphQL FetchTotalPrice. (verified)
+
+        products: [{"id": webshopId, "quantity": n}], as in appie-go's API doc.
+        The price to pay is withoutDiscount.amount - discount.amount.
+        """
+        return await self._graphql(TOTAL_PRICE_QUERY, {"products": products})
