@@ -33,7 +33,7 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `sensor.albert_heijn_vergeet_niet` | Aantal "vergeet niet"-suggesties. Attribuut `suggesties`: lijst met `product_id`, `title`, `image`, `size`, `is_bonus`, `bonus_mechanism`, `price`, `price_before`. |
 | `sensor.albert_heijn_bonus_voor_ons` | Aantal relevante aanbiedingen. Attribuut `offers`: lijst met `key`, `title`, `mechanism` ("1 + 1 GRATIS"), `price`, `price_was`, `image`, `source` (`op_lijst` / `persoonlijk` / `eerder_gekocht`), `on_list`, `activated`, `end_date`. Ook `period_start`, `period_end`, `on_list`, `personal`. `on_list` volgt je lijst direct. |
 | `sensor.albert_heijn_laatste_kassabon` | Totaal van de laatste kassabon (€). Attributen `datetime`, `items`, `discounts`, `discount_total`, `payments`, `recent` (laatste 10 bonnen, elk met `datetime`, `total`, `id` en `pdf_url`). |
-| `sensor.albert_heijn_uitgaven_deze_maand` | Som van de kassabonnen deze maand (€, reset op de 1e; met langetermijnstatistiek). Attribuut `receipts`. |
+| `sensor.albert_heijn_uitgaven_deze_maand` | Som van de kassabonnen deze maand (€, reset op de 1e; met langetermijnstatistiek). Attributen `receipts` en `per_maand` (de afgelopen 12 maanden: `maand`, `naam`, `totaal`, `bonnen`). |
 | `select.albert_heijn_kassabon` | Kies een van je recente kassabonnen ("zo 4 okt 2026 15:00 · € 36,16"). |
 | `sensor.albert_heijn_gekozen_kassabon` | De gekozen bon (€). Attributen `receipt_id`, `datetime`, `items`, `discounts`, `discount_total`, `payments`, `pdf_url`. |
 | `sensor.albert_heijn_vaak_gekocht` | Aantal producten in Vaak gekocht. Attribuut `producten`: de hele ranglijst met `rank`, `title`, `times_bought`, `product_id`, `bonus`, `on_list`, `quantity_on_list`, `entity_picture`. |

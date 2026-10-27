@@ -662,6 +662,28 @@ def receipt_label(receipt: Receipt, tz: tzinfo | None = None) -> str:
     )
 
 
+def monthly_totals(receipts: list[Receipt], today: date, tz: tzinfo | None = None, months: int = 12) -> list[dict]:
+    """Spending per calendar month, the last `months` months including this one, oldest first."""
+    totals: dict[tuple[int, int], list[float]] = {}
+    for receipt in receipts:
+        day = receipt.day(tz)
+        totals.setdefault((day.year, day.month), []).append(receipt.total)
+    result = []
+    year, month = today.year, today.month
+    for _ in range(months):
+        amounts = totals.get((year, month), [])
+        result.append(
+            {
+                "maand": f"{year:04d}-{month:02d}",
+                "naam": f"{MONTH_ABBR[month - 1]} {year}",
+                "totaal": round(sum(amounts), 2),
+                "bonnen": len(amounts),
+            }
+        )
+        year, month = (year, month - 1) if month > 1 else (year - 1, 12)
+    return list(reversed(result))
+
+
 def month_total(receipts: list[Receipt], today: date, tz: tzinfo | None = None) -> float:
     return round(
         sum(r.total for r in receipts if (r.day(tz).year, r.day(tz).month) == (today.year, today.month)), 2

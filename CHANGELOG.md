@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+### Nieuw
+
+- `sensor.albert_heijn_uitgaven_deze_maand` heeft een attribuut `per_maand`: wat je de afgelopen 12 maanden per maand bij AH uitgaf (`maand`, `naam`, `totaal`, `bonnen`). Eerdere maanden worden één keer per dag opgehaald, deze maand elk uur.
+- Dashboard: tabel met uitgaven per maand op het tabblad Kassabonnen.
+
 ## 0.3.0
 
 Eerste gewone release van deze fork: alles uit 0.3.0-beta.1 (zie hieronder), plus:
