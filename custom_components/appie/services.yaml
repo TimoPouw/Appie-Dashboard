@@ -117,3 +117,11 @@ favorite_list_to_list:
       example: Weekboodschappen
       selector:
         text:
+
+activate_bonus:
+  fields:
+    aanbieding:
+      required: true
+      example: "596089"
+      selector:
+        text:

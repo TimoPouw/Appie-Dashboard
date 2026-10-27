@@ -49,22 +49,25 @@ async def test_list_cost_burst_is_one_call(hass: HomeAssistant, api) -> None:
     entry = await setup_appie(hass)
     assert api["get_total_price"].await_count == 1
 
-    # Three quick edits to the products: nothing yet...
-    for quantity in (2, 3, 4):
+    # The first edit is priced right away...
+    await _list_poll(hass, entry, _list_with(butter=2))
+    assert api["get_total_price"].await_count == 2
+    # ...more quick edits wait for the cooldown...
+    for quantity in (3, 4):
         await _list_poll(hass, entry, _list_with(butter=quantity))
-    assert api["get_total_price"].await_count == 1
+    assert api["get_total_price"].await_count == 2
 
-    # ...one call once the cooldown has passed, with the latest list.
+    # ...and then cost one call, with the latest list.
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
     await hass.async_block_till_done()
-    assert api["get_total_price"].await_count == 2
+    assert api["get_total_price"].await_count == 3
     assert api["get_total_price"].await_args.args[0][0] == {"id": 111, "quantity": 4}
 
     # An unchanged list on the next poll costs nothing.
     await _list_poll(hass, entry, _list_with(butter=4))
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=200))
     await hass.async_block_till_done()
-    assert api["get_total_price"].await_count == 2
+    assert api["get_total_price"].await_count == 3
 
 
 async def test_list_cost_free_text_needs_no_call(hass: HomeAssistant, api) -> None:

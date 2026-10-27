@@ -57,6 +57,12 @@
     },
     "unknown_list": {
       "message": "No favorite list \"{list}\". Your lists: {lists}."
+    },
+    "unknown_offer": {
+      "message": "\"{offer}\" is not in your Bonus Box."
+    },
+    "bonus_box_full": {
+      "message": "You already activated {max} Bonus Box offers this week."
     }
   },
   "services": {
@@ -177,6 +183,16 @@
         "lijst": {
           "name": "List",
           "description": "Name or id of the favorite list."
+        }
+      }
+    },
+    "activate_bonus": {
+      "name": "Activate Bonus Box offer",
+      "description": "Activates one offer from your personal Bonus Box, as in the app.",
+      "fields": {
+        "aanbieding": {
+          "name": "Offer",
+          "description": "Id or name of the offer (attribute `aanbiedingen` of the Bonus Box sensor)."
         }
       }
     }
