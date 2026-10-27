@@ -29,6 +29,9 @@ FAVORITES_INTERVAL = timedelta(hours=12)
 LIST_COST_INTERVAL = timedelta(hours=6)
 # A burst of list edits (ticking off five items) costs one call, this long after the first.
 LIST_COST_COOLDOWN = 60
+# "Vergeet niet": at most once per 15 minutes after a list change, else every 6 h.
+DONT_FORGET_INTERVAL = timedelta(hours=6)
+DONT_FORGET_COOLDOWN = 15 * 60
 
 # How many receipts to fetch per update (covers well over a month).
 RECEIPTS_PAGE_SIZE = 50

@@ -17,6 +17,8 @@ from homeassistant.util import dt as dt_util
 from .api import AppieAuthError, AppieClient, AppieError
 from .const import (
     BONUS_INTERVAL,
+    DONT_FORGET_COOLDOWN,
+    DONT_FORGET_INTERVAL,
     CONF_FAVORITES_COUNT,
     CONF_FAVORITES_DAYS,
     DOMAIN,
@@ -38,6 +40,7 @@ from .models import (
     ListItem,
     Receipt,
     ReceiptDetail,
+    Suggestion,
     bonus_period,
     build_favorites,
     count_free_text,
@@ -46,6 +49,7 @@ from .models import (
     parse_total_price,
     month_total,
     parse_bonus_section,
+    parse_dont_forget,
     parse_list,
     parse_receipt_detail,
     parse_receipts,
@@ -70,6 +74,7 @@ class AppieData:
     receipts: ReceiptsCoordinator
     favorites: FavoritesCoordinator
     list_cost: ListCostCoordinator
+    dont_forget: DontForgetCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -306,3 +311,25 @@ class ListCostCoordinator(_ListDrivenCoordinator[ListCost]):
             # Not async_set_updated_data: that would restart the 6 h timer.
             self.data = replace(self.data, free_text=free_text)
             self.async_update_listeners()
+
+
+class DontForgetCoordinator(_ListDrivenCoordinator[list[Suggestion]]):
+    """The app's "vergeet niet" suggestions for what is on the list."""
+
+    def __init__(self, hass, entry, client, shopping_list: ListCoordinator) -> None:
+        # immediate: the first change is fetched right away, then at most once per cooldown.
+        super().__init__(
+            hass, entry, client, shopping_list, "vergeet niet", DONT_FORGET_INTERVAL, DONT_FORGET_COOLDOWN, True
+        )
+
+    async def _fetch_for(self, items: list[ListItem]) -> list[Suggestion]:
+        basket = [
+            {"quantity": i.quantity, "position": n, "productId": i.product_id}
+            for n, i in enumerate(open_products(items), start=1)
+        ]
+        if not basket:
+            # Not documented what the lane returns for an empty basket; don't ask.
+            return []
+        on_list = {i.product_id for i in items if i.product_id}
+        return [s for s in parse_dont_forget(await self.client.get_dont_forget(basket) or {})
+                if s.product_id not in on_list]

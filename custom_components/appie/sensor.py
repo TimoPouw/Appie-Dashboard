@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from dataclasses import asdict
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
@@ -14,6 +15,7 @@ from homeassistant.util import dt as dt_util
 from .coordinator import (
     AppieConfigEntry,
     BonusCoordinator,
+    DontForgetCoordinator,
     FavoritesCoordinator,
     ListCostCoordinator,
     ReceiptsCoordinator,
@@ -37,6 +39,7 @@ async def async_setup_entry(
             MonthSpendSensor(entry, data.receipts),
             FavoritesSensor(entry, data.favorites),
             ListCostSensor(entry, data.list_cost),
+            DontForgetSensor(entry, data.dont_forget),
         ]
     )
 
@@ -190,3 +193,22 @@ class ListCostSensor(_Base, SensorEntity):
             "aantal_producten": cost.products,
             "aantal_vrije_tekst": cost.free_text,
         }
+
+
+class DontForgetSensor(_Base, SensorEntity):
+    """Suggestions from the app's "vergeet niet" lane."""
+
+    _attr_icon = "mdi:lightbulb-on-outline"
+    _attr_native_unit_of_measurement = "suggesties"
+    _unrecorded_attributes = frozenset({"suggesties"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: DontForgetCoordinator) -> None:
+        super().__init__(entry, coordinator, "vergeet_niet", "Vergeet niet")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"suggesties": [asdict(s) for s in self.coordinator.data or []]}

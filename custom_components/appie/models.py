@@ -153,6 +153,42 @@ def parse_total_price(raw: dict, items: list[ListItem]) -> ListCost:
     )
 
 
+@dataclass
+class Suggestion:
+    """A "vergeet niet" product card."""
+
+    product_id: int
+    title: str
+    image: str | None = None
+    size: str | None = None
+    is_bonus: bool = False
+    bonus_mechanism: str | None = None
+    price: float | None = None
+    price_before: float | None = None
+
+
+def parse_dont_forget(raw: dict) -> list[Suggestion]:
+    """Parse the dontforgetlane response (productCards)."""
+    suggestions: list[Suggestion] = []
+    for card in raw.get("productCards") or []:
+        if not card.get("webshopId"):
+            continue
+        now, before = card.get("currentPrice"), card.get("priceBeforeBonus")
+        suggestions.append(
+            Suggestion(
+                product_id=card["webshopId"],
+                title=card.get("title") or "?",
+                image=pick_image(card.get("images")),
+                size=card.get("salesUnitSize"),
+                is_bonus=bool(card.get("isBonus")),
+                bonus_mechanism=card.get("bonusMechanism") if card.get("isBonus") else None,
+                price=now if now is not None else before,
+                price_before=before if now is not None and before != now else None,
+            )
+        )
+    return suggestions
+
+
 # --- bonus -------------------------------------------------------------------
 
 

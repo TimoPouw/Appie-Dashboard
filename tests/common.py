@@ -26,6 +26,20 @@ SEARCH = {
 # GraphQL FetchTotalPrice, the response from appie-go's API doc.
 TOTAL_PRICE = {"data": {"totalPrice": {"withoutDiscount": {"amount": 5.58}, "discount": {"amount": 0.38}}}}
 
+# POST /mobile-services/v2/recommendations/dontforgetlane, from appie-go's API doc.
+DONT_FORGET = {
+    "dataLakeModel": {"name": "TransformerModelWithCategory", "requestId": "", "version": "2026_02_01-11_50"},
+    "productCards": [
+        {"webshopId": 2600, "title": "AH Goudse jong 48+ plakken", "brand": "AH", "salesUnitSize": "190 g",
+         "images": [{"width": 200, "height": 200, "url": "https://img.invalid/kaas"}], "isBonus": True,
+         "bonusMechanism": "2e halve prijs", "priceBeforeBonus": 2.95, "currentPrice": 2.21},
+        {"webshopId": 3100, "title": "AH Scharreleieren", "salesUnitSize": "10 stuks", "isBonus": False,
+         "priceBeforeBonus": 3.49},
+        # Already on the list: not suggested.
+        {"webshopId": 111, "title": "AH Roomboter", "isBonus": False, "priceBeforeBonus": 3.29},
+    ],
+}
+
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(

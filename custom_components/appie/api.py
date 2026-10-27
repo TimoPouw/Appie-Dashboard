@@ -317,3 +317,18 @@ class AppieClient:
         The price to pay is withoutDiscount.amount - discount.amount.
         """
         return await self._graphql(TOTAL_PRICE_QUERY, {"products": products})
+
+    async def get_dont_forget(self, basket: list[dict[str, int]], limit: int = 7) -> dict:
+        """The app's "vergeet niet" lane for the list. (verified)
+
+        POST /mobile-services/v2/recommendations/dontforgetlane with the body from
+        appie-go's API doc; basket: [{"quantity", "position", "productId"}].
+        """
+        body = {
+            "positiveCmOnly": True,
+            "offset": 0,
+            "usecaseId": "app_mylist",
+            "basketItems": basket,
+            "limit": limit,
+        }
+        return await self._request("POST", "/mobile-services/v2/recommendations/dontforgetlane", body)

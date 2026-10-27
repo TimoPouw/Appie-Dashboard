@@ -89,3 +89,44 @@ async def test_list_cost_failure_keeps_rest_working(hass: HomeAssistant, api) ->
     assert entry.state.name == "LOADED"
     assert hass.states.get("sensor.albert_heijn_lijst_kosten").state == "unavailable"
     assert hass.states.get("sensor.albert_heijn_bonus_voor_ons").state == "4"
+
+
+async def test_dont_forget_sensor(hass: HomeAssistant, api) -> None:
+    await setup_appie(hass)
+    api["get_dont_forget"].assert_awaited_once_with(
+        [{"quantity": 1, "position": 1, "productId": 111}, {"quantity": 2, "position": 2, "productId": 222}]
+    )
+    state = hass.states.get("sensor.albert_heijn_vergeet_niet")
+    assert state.state == "2"
+    assert state.attributes["suggesties"] == [
+        {"product_id": 2600, "title": "AH Goudse jong 48+ plakken", "image": "https://img.invalid/kaas",
+         "size": "190 g", "is_bonus": True, "bonus_mechanism": "2e halve prijs", "price": 2.21, "price_before": 2.95},
+        {"product_id": 3100, "title": "AH Scharreleieren", "image": None, "size": "10 stuks", "is_bonus": False,
+         "bonus_mechanism": None, "price": 3.49, "price_before": None},
+    ]
+
+
+async def test_dont_forget_at_most_every_15_minutes(hass: HomeAssistant, api) -> None:
+    entry = await setup_appie(hass)
+    assert api["get_dont_forget"].await_count == 1
+
+    # The first change is fetched right away...
+    await _list_poll(hass, entry, _list_with(butter=2))
+    assert api["get_dont_forget"].await_count == 2
+    # ...later changes wait for the 15 minutes to pass, and then count once.
+    for quantity in (3, 4, 5):
+        await _list_poll(hass, entry, _list_with(butter=quantity))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=10))
+    await hass.async_block_till_done()
+    assert api["get_dont_forget"].await_count == 2
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=16))
+    await hass.async_block_till_done()
+    assert api["get_dont_forget"].await_count == 3
+    assert api["get_dont_forget"].await_args.args[0][0]["quantity"] == 5
+
+
+async def test_dont_forget_empty_list_makes_no_call(hass: HomeAssistant, api) -> None:
+    api["get_list"].return_value = {"items": []}
+    await setup_appie(hass)
+    api["get_dont_forget"].assert_not_awaited()
+    assert hass.states.get("sensor.albert_heijn_vergeet_niet").state == "0"
