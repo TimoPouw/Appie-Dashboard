@@ -51,6 +51,9 @@
     },
     "unknown_product": {
       "message": "Product {product_id} not found."
+    },
+    "unknown_category": {
+      "message": "Unknown bonus category \"{category}\". Choose from: {categories}."
     }
   },
   "services": {
@@ -119,6 +122,16 @@
         "categorie_id": {
           "name": "Category id",
           "description": "AH category (taxonomy) id."
+        }
+      }
+    },
+    "bonus": {
+      "name": "Bonus per category",
+      "description": "Without a category: the bonus categories of this week. With a category: all bonus offers in it.",
+      "fields": {
+        "categorie": {
+          "name": "Category",
+          "description": "A category name from the list this service returns without one."
         }
       }
     }

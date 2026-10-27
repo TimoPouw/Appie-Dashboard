@@ -30,6 +30,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieCo
         # The store address says roughly where the member lives.
         "store": async_redact_data(asdict(data.store.data), TO_REDACT) if data.store.data else None,
         "bargains": [asdict(b) for b in data.bargains.data or []],
+        "spotlight": len(data.spotlight.data or []),
+        "bonus_box": asdict(data.bonus_box.data) if data.bonus_box.data else None,
         "receipts": {
             "count": len(receipts.receipts),
             "month_total": receipts.month_total,

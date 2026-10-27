@@ -51,6 +51,9 @@
     },
     "unknown_product": {
       "message": "Product {product_id} niet gevonden."
+    },
+    "unknown_category": {
+      "message": "Onbekende bonuscategorie \"{category}\". Kies uit: {categories}."
     }
   },
   "services": {
@@ -119,6 +122,16 @@
         "categorie_id": {
           "name": "Categorie-id",
           "description": "Het AH-categorienummer (taxonomy-id)."
+        }
+      }
+    },
+    "bonus": {
+      "name": "Bonus per categorie",
+      "description": "Zonder categorie: de bonuscategorieën van deze week. Met een categorie: alle bonusaanbiedingen daarin.",
+      "fields": {
+        "categorie": {
+          "name": "Categorie",
+          "description": "Een categorienaam uit de lijst die je zonder categorie terugkrijgt."
         }
       }
     }

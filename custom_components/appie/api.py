@@ -152,6 +152,26 @@ NUTRITION_QUERY = """query FetchProduct($productId: Int!) {
   }
 }"""
 
+# appie-go doc/albertheijn_api.md, "FetchBonusBoxOffers": the operation, its
+# arguments and variables are documented, BonusPromotionCardFragment is not.
+# The selection below only uses fields from the documented example response,
+# all of which exist on Promotion in doc/graphql-schema-20260118.md.
+BONUS_BOX_QUERY = """query FetchBonusBoxOffers($filterSet: PromotionsFilterSet, $periodStart: String, \
+$periodEnd: String, $orderId: Int, $forcePromotionVisibility: Boolean = true, \
+$filterUnavailableProducts: Boolean = false, $states: [BonusSegmentState!]) {
+  bonusPersonalPromotionBundles(validOn: $periodStart) {
+    __typename maximumActivations error
+  }
+  bonusPromotions(filterSet: $filterSet input: { periodStart: $periodStart periodEnd: $periodEnd orderId: $orderId \
+filterUnavailableProducts: $filterUnavailableProducts forcePromotionVisibility: $forcePromotionVisibility \
+states: $states }) {
+    __typename id hqId title activationStatus category promotionType segmentType periodStart periodEnd
+    images { url width height }
+    rawPromotionLabels { mechanism price defaultDescription }
+    price { now { amount } was { amount } }
+  }
+}"""
+
 
 class AppieError(Exception):
     """API call failed."""
@@ -315,6 +335,47 @@ class AppieClient:
         return await self._request(
             "GET",
             f"/mobile-services/bonuspage/v2/section/previously-bought?application={APPLICATION}&date={day.isoformat()}",
+        )
+
+    async def get_spotlight_bonus(self, day: date) -> dict:
+        """This week's highlighted bonus. (verified)
+
+        GET /mobile-services/bonuspage/v2/section/spotlight, as in appie-go bonus.go.
+        """
+        return await self._request(
+            "GET",
+            f"/mobile-services/bonuspage/v2/section/spotlight?application={APPLICATION}&date={day.isoformat()}",
+        )
+
+    async def get_bonus_category(self, category: str, day: date) -> dict:
+        """All national bonus in one category. (verified)
+
+        GET /mobile-services/bonuspage/v2/section with the parameters from appie-go
+        bonus.go (getBonusSection); category names come from the metadata tabs.
+        """
+        params = urlencode(
+            {"application": APPLICATION, "date": day.isoformat(), "promotionType": "NATIONAL", "category": category}
+        )
+        return await self._request("GET", f"/mobile-services/bonuspage/v2/section?{params}")
+
+    async def get_bonus_box(self, period_start: str, period_end: str) -> dict:
+        """Personal Bonus Box offers: GraphQL FetchBonusBoxOffers. (inferred)
+
+        Operation, arguments and variables are from appie-go's API doc. The doc
+        leaves out BonusPromotionCardFragment, so the fields are picked from its
+        example response (checked against the schema dump). If AH rejects the
+        selection, only the Bonus Box sensor goes unavailable.
+        """
+        return await self._graphql(
+            BONUS_BOX_QUERY,
+            {
+                "filterSet": "APP_BONUS_BOX",
+                "filterUnavailableProducts": False,
+                "forcePromotionVisibility": True,
+                "periodStart": period_start,
+                "periodEnd": period_end,
+                "states": ["ACTIVATABLE", "ACTIVATED"],
+            },
         )
 
     # receipts

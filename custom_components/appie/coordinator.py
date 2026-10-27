@@ -38,7 +38,9 @@ from .const import (
 from .models import (
     SOURCE_PERSONAL,
     SOURCE_PREVIOUS,
+    SOURCE_SPOTLIGHT,
     Bargain,
+    BonusBox,
     BonusOffer,
     Favorite,
     ListCost,
@@ -55,6 +57,7 @@ from .models import (
     parse_total_price,
     month_total,
     parse_bargains,
+    parse_bonus_box,
     parse_bonus_section,
     parse_dont_forget,
     parse_list,
@@ -86,6 +89,8 @@ class AppieData:
     store: StoreCoordinator
     bargains: BargainsCoordinator
     receipt_viewer: ReceiptViewerCoordinator
+    spotlight: SpotlightCoordinator
+    bonus_box: BonusBoxCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -421,6 +426,31 @@ class BargainsCoordinator(_AppieCoordinator[list[Bargain]]):
         if new or expired:
             self._fired -= expired
             await self._fired_store.async_save({"fired": sorted(self._fired)})
+
+
+class SpotlightCoordinator(_AppieCoordinator[list[BonusOffer]]):
+    """The week's highlighted bonus (spotlight section)."""
+
+    def __init__(self, hass, entry, client) -> None:
+        super().__init__(hass, entry, client, "bonus spotlight", BONUS_INTERVAL)
+
+    async def _fetch(self) -> list[BonusOffer]:
+        raw = await self.client.get_spotlight_bonus(dt_util.now().date())
+        return parse_bonus_section(raw or {}, SOURCE_SPOTLIGHT)
+
+
+class BonusBoxCoordinator(_AppieCoordinator[BonusBox | None]):
+    """The personal Bonus Box, for the bonus week the bonus coordinator knows."""
+
+    def __init__(self, hass, entry, client, bonus: BonusCoordinator) -> None:
+        super().__init__(hass, entry, client, "bonus box", BONUS_INTERVAL)
+        self._bonus = bonus
+
+    async def _fetch(self) -> BonusBox | None:
+        period = self._bonus.data
+        if period is None or not period.period_start or not period.period_end:
+            return None
+        return parse_bonus_box(await self.client.get_bonus_box(period.period_start, period.period_end) or {})
 
 
 @dataclass

@@ -16,6 +16,8 @@ ORIGIN_TEXT = "TXT"
 SOURCE_PERSONAL = "persoonlijk"
 SOURCE_PREVIOUS = "eerder_gekocht"
 SOURCE_LIST = "op_lijst"
+SOURCE_SPOTLIGHT = "spotlight"
+SOURCE_CATEGORY = "categorie"
 
 
 # --- shopping list -----------------------------------------------------------
@@ -454,6 +456,53 @@ def relevant_bonus(
         )
     rank = {SOURCE_LIST: 1, SOURCE_PERSONAL: 1, SOURCE_PREVIOUS: 2}
     return sorted(merged.values(), key=lambda o: (not o.on_list, rank[o.source]))
+
+
+def bonus_categories(raw_metadata: dict) -> list[str]:
+    """National bonus categories of the current week (metadata tabs, as in bonus.go)."""
+    periods = raw_metadata.get("periods") or []
+    names: list[str] = []
+    for tab in (periods[0].get("tabs") or []) if periods else []:
+        for meta in tab.get("urlMetadataList") or []:
+            if meta.get("bonusType") == "NATIONAL" and meta.get("description") and meta["description"] not in names:
+                names.append(meta["description"])
+    return names
+
+
+@dataclass
+class BonusBox:
+    """The personal Bonus Box (FetchBonusBoxOffers)."""
+
+    max_activations: int | None
+    offers: list[dict]
+
+    @property
+    def activated(self) -> int:
+        return sum(1 for o in self.offers if o["activated"])
+
+
+def parse_bonus_box(raw: dict) -> BonusBox:
+    data = raw.get("data") or {}
+    bundles = data.get("bonusPersonalPromotionBundles") or []
+    offers = []
+    for promo in data.get("bonusPromotions") or []:
+        labels = promo.get("rawPromotionLabels") or []
+        price = promo.get("price") or {}
+        offers.append(
+            {
+                "id": promo.get("id"),
+                "title": promo.get("title") or "?",
+                "category": promo.get("category"),
+                "mechanism": labels[0].get("defaultDescription") if labels else None,
+                "price": (price.get("now") or {}).get("amount"),
+                "price_was": (price.get("was") or {}).get("amount"),
+                "image": pick_image(promo.get("images")),
+                "activated": promo.get("activationStatus") == "ACTIVATED",
+                "start_date": promo.get("periodStart"),
+                "end_date": promo.get("periodEnd"),
+            }
+        )
+    return BonusBox(max_activations=bundles[0].get("maximumActivations") if bundles else None, offers=offers)
 
 
 def bonus_period(raw_metadata: dict) -> tuple[str | None, str | None]:

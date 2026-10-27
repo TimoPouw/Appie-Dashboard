@@ -6,11 +6,13 @@ import pytest
 
 from .common import (
     BARGAINS,
+    BONUS_BOX,
     DONT_FORGET,
     META,
     NUTRITION,
     PRODUCT_DETAIL,
     SEARCH,
+    SPOTLIGHT,
     STORE,
     TOTAL_PRICE,
 )
@@ -45,6 +47,9 @@ def api():
         "get_product_detail": AsyncMock(return_value=PRODUCT_DETAIL),
         "get_nutrition": AsyncMock(return_value=NUTRITION),
         "get_subcategories": AsyncMock(return_value=[{"id": 6402, "name": "Gehakt"}]),
+        "get_spotlight_bonus": AsyncMock(return_value=SPOTLIGHT),
+        "get_bonus_category": AsyncMock(return_value=SPOTLIGHT),
+        "get_bonus_box": AsyncMock(return_value=BONUS_BOX),
         "get_receipt_pdf": AsyncMock(return_value=b"%PDF-1.4 kassabon"),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]

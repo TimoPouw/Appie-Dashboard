@@ -7,7 +7,15 @@ from homeassistant.core import HomeAssistant
 from custom_components.appie.const import DOMAIN
 
 TOKENS = {"access_token": "12345_abc", "refresh_token": "r1", "expires_at": 4_000_000_000}
-META = {"periods": [{"bonusStartDate": "2026-10-05", "bonusEndDate": "2026-10-11"}]}
+# GET /mobile-services/bonuspage/v3/metadata, with the tabs appie-go bonus.go reads.
+META = {"periods": [{"bonusStartDate": "2026-10-05", "bonusEndDate": "2026-10-11", "tabs": [{
+    "description": "Alle bonus",
+    "urlMetadataList": [
+        {"url": "...", "count": 40, "bonusType": "NATIONAL", "description": "Groente, aardappelen"},
+        {"url": "...", "count": 25, "bonusType": "NATIONAL", "description": "Zuivel, eieren"},
+        {"url": "...", "count": 5, "bonusType": "PERSONAL", "description": "Persoonlijk"},
+    ],
+}]}]}
 
 # GET /mobile-services/product/search/v2, shaped like appie-go doc/albertheijn_api.md.
 SEARCH = {
@@ -87,6 +95,29 @@ NUTRITION = {"data": {"product": {"id": 436752, "tradeItem": {"nutritions": [{"n
     {"type": "ENER-", "name": "Energie", "value": "1011 kJ (243 kcal)"},
     {"type": "FAT", "name": "Vet", "value": "18 g"},
 ]}]}}}}
+
+# GET /mobile-services/bonuspage/v2/section/spotlight (same shape as a bonus section).
+SPOTLIGHT = {"sectionType": "SPOTLIGHT", "bonusGroupOrProducts": [
+    {"product": {"webshopId": 111, "title": "AH Roomboter", "bonusMechanism": "2e halve prijs", "currentPrice": 2.47,
+                 "priceBeforeBonus": 3.29, "bonusEndDate": "2026-10-11"}},
+    {"bonusGroup": {"id": "g7", "segmentId": 700, "segmentDescription": "Alle Lay's chips",
+                    "discountDescription": "1 + 1 GRATIS", "products": [{"webshopId": 701}]}},
+]}
+
+# GraphQL FetchBonusBoxOffers, the example response from appie-go's API doc (plus one more offer).
+BONUS_BOX = {"data": {
+    "bonusPersonalPromotionBundles": [{"maximumActivations": 10, "error": None}],
+    "bonusPromotions": [
+        {"id": "385568", "hqId": 894018, "title": "AH Pancakes", "activationStatus": "ACTIVATED",
+         "category": "Maaltijden, salades", "promotionType": "PERSONAL", "segmentType": "BONUS_BOX",
+         "periodStart": "2026-02-09", "periodEnd": "2026-02-15",
+         "rawPromotionLabels": [{"mechanism": "PRICE", "price": 2.0, "defaultDescription": "VOOR 2.00"}],
+         "price": {"now": {"amount": 2.0}, "was": {"amount": 2.99}}},
+        {"id": "385569", "hqId": 894019, "title": "AH Hummus", "activationStatus": "ACTIVATABLE",
+         "category": "Salades", "periodStart": "2026-02-09", "periodEnd": "2026-02-15",
+         "rawPromotionLabels": [], "price": None},
+    ],
+}}
 
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:

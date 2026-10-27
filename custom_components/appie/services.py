@@ -14,6 +14,9 @@ from .api import AppieError
 from .const import DOMAIN
 from .coordinator import AppieConfigEntry
 from .models import (
+    SOURCE_CATEGORY,
+    bonus_categories,
+    parse_bonus_section,
     best_match,
     new_product_item,
     parse_product_detail,
@@ -28,6 +31,7 @@ SERVICE_GET_RECEIPT = "get_receipt"
 SERVICE_GET_PRODUCT = "get_product"
 SERVICE_GET_PRODUCTS = "get_products"
 SERVICE_GET_SUBCATEGORIES = "get_subcategories"
+SERVICE_BONUS = "bonus"
 
 ATTR_QUERY = "zoekterm"
 ATTR_COUNT = "aantal"
@@ -35,6 +39,7 @@ ATTR_RECEIPT_ID = "receipt_id"
 ATTR_PRODUCT_ID = "product_id"
 ATTR_PRODUCT_IDS = "product_ids"
 ATTR_CATEGORY_ID = "categorie_id"
+ATTR_CATEGORY = "categorie"
 
 # Enough results for add_product to find a product we often buy.
 ADD_PRODUCT_CANDIDATES = 20
@@ -60,6 +65,7 @@ PRODUCTS_SCHEMA = vol.Schema(
     }
 )
 SUBCATEGORIES_SCHEMA = vol.Schema({vol.Required(ATTR_CATEGORY_ID): vol.All(vol.Coerce(int), vol.Range(min=1))})
+BONUS_SCHEMA = vol.Schema({vol.Optional(ATTR_CATEGORY): cv.string})
 RECEIPT_SCHEMA = vol.Schema({vol.Optional(ATTR_RECEIPT_ID): cv.string})
 
 
@@ -150,6 +156,27 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(f"Albert Heijn: {err}") from err
         return {"antwoord": raw}
 
+    async def bonus(call: ServiceCall) -> ServiceResponse:
+        client = _entry(hass).runtime_data.client
+        today = dt_util.now().date()
+        try:
+            categories = bonus_categories(await client.get_bonus_metadata() or {})
+            category = call.data.get(ATTR_CATEGORY)
+            if not category:
+                return {"categorieen": categories}
+            match = next((c for c in categories if c.lower() == category.strip().lower()), None)
+            if match is None:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="unknown_category",
+                    translation_placeholders={"category": category, "categories": ", ".join(categories)},
+                )
+            raw = await client.get_bonus_category(match, today)
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        offers = parse_bonus_section(raw or {}, SOURCE_CATEGORY)
+        return {"categorie": match, "aanbiedingen": [o.as_dict() for o in offers]}
+
     async def get_receipt(call: ServiceCall) -> ServiceResponse:
         data = _entry(hass).runtime_data
         receipts = data.receipts.data
@@ -184,6 +211,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
         get_subcategories,
         schema=SUBCATEGORIES_SCHEMA,
         supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_BONUS, bonus, schema=BONUS_SCHEMA, supports_response=SupportsResponse.ONLY
     )
     hass.services.async_register(
         DOMAIN, SERVICE_GET_RECEIPT, get_receipt, schema=RECEIPT_SCHEMA, supports_response=SupportsResponse.ONLY

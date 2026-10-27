@@ -16,16 +16,18 @@ from homeassistant.util import dt as dt_util
 from .coordinator import (
     AppieConfigEntry,
     BargainsCoordinator,
+    BonusBoxCoordinator,
     BonusCoordinator,
     DontForgetCoordinator,
     FavoritesCoordinator,
     ListCostCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
+    SpotlightCoordinator,
     StoreCoordinator,
 )
 from .entity import device_info
-from .models import SOURCE_PERSONAL, favorite_attributes, receipt_view
+from .models import SOURCE_PERSONAL, favorite_attributes, open_products, receipt_view
 
 RECENT_RECEIPTS = 10
 
@@ -47,6 +49,8 @@ async def async_setup_entry(
             StoreSensor(entry, data.store),
             BargainsSensor(entry, data.bargains),
             PickedReceiptSensor(entry, data.receipt_viewer),
+            SpotlightSensor(entry, data.spotlight),
+            BonusBoxSensor(entry, data.bonus_box),
         ]
     )
 
@@ -339,3 +343,56 @@ class PickedReceiptSensor(_Base, SensorEntity):
         view = receipt_view(viewed.receipt, viewed.detail, dt_util.get_default_time_zone())
         view.pop("total")
         return {**view, "pdf_url": self.coordinator.pdf_url(viewed.receipt.id)}
+
+
+class SpotlightSensor(_Base, SensorEntity):
+    """The week's highlighted bonus; on_list follows the shopping list."""
+
+    _attr_icon = "mdi:star-circle"
+    _attr_native_unit_of_measurement = "aanbiedingen"
+    _unrecorded_attributes = frozenset({"offers"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: SpotlightCoordinator) -> None:
+        super().__init__(entry, coordinator, "bonus_spotlight", "Bonus spotlight")
+        self._list = entry.runtime_data.shopping_list
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self._list.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        on_list = {i.product_id for i in open_products(self._list.data or [])}
+        return {
+            "offers": [
+                {**o.as_dict(), "on_list": bool(on_list.intersection(o.product_ids))}
+                for o in self.coordinator.data or []
+            ]
+        }
+
+
+class BonusBoxSensor(_Base, SensorEntity):
+    """Personal Bonus Box: how many offers, which are activated."""
+
+    _attr_icon = "mdi:gift-outline"
+    _attr_native_unit_of_measurement = "aanbiedingen"
+    _unrecorded_attributes = frozenset({"aanbiedingen"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: BonusBoxCoordinator) -> None:
+        super().__init__(entry, coordinator, "bonus_box", "Bonus Box")
+
+    @property
+    def native_value(self) -> int | None:
+        box = self.coordinator.data
+        return len(box.offers) if box else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        box = self.coordinator.data
+        if box is None:
+            return {}
+        return {"max_activaties": box.max_activations, "geactiveerd": box.activated, "aanbiedingen": box.offers}
