@@ -41,7 +41,8 @@ async def test_dashboard_entities_exist(hass: HomeAssistant, api, dashboard) -> 
     assert not missing
 
 
-async def test_dashboard_templates_render(hass: HomeAssistant, api, dashboard) -> None:
+async def test_dashboard_templates_render(hass: HomeAssistant, api, dashboard, freezer) -> None:
+    freezer.move_to("2026-10-27T12:00:00+00:00")
     await setup_appie(hass)
     await hass.async_block_till_done()
     markdown = [c["content"] for c in _cards(dashboard) if c.get("type") == "markdown"]
@@ -52,7 +53,9 @@ async def test_dashboard_templates_render(hass: HomeAssistant, api, dashboard) -
     for expected in ("AH Goudse jong 48+ plakken", "Weekboodschappen", "AH Courgette", "AH Pancakes",
                      "Nachtegaalstraat", "AH Roodbaarsfilet", "Bio banaan", "PDF",
                      # Overzicht: what's in the Bonus Box and the "vaak gekocht" ranking.
-                     "1 van 10 geactiveerd", "3× gekocht"):
+                     "1 van 10 geactiveerd", "3× gekocht",
+                     # Kassabonnen: spending per month.
+                     "okt 2026", "€ 43,08"):
         assert expected in joined, expected
     assert "{{" not in joined and "{%" not in joined
 

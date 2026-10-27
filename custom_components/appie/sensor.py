@@ -140,6 +140,7 @@ class MonthSpendSensor(_Base, SensorEntity):
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = "EUR"
+    _unrecorded_attributes = frozenset({"per_maand"})
 
     def __init__(self, entry: AppieConfigEntry, coordinator: ReceiptsCoordinator) -> None:
         super().__init__(entry, coordinator, "uitgaven_deze_maand", "Uitgaven deze maand")
@@ -154,7 +155,7 @@ class MonthSpendSensor(_Base, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"receipts": self.coordinator.data.month_count}
+        return {"receipts": self.coordinator.data.month_count, "per_maand": self.coordinator.data.per_month}
 
 
 class FavoritesSensor(_Base, SensorEntity):

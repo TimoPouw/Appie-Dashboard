@@ -384,6 +384,18 @@ views:
             days_to_show: 365
             title: Per maand
           - type: markdown
+            title: Per maand
+            content: |
+              {% set months = state_attr('sensor.albert_heijn_uitgaven_deze_maand', 'per_maand') or [] %}
+              {% set top = (months | map(attribute='totaal') | max) if months else 0 %}
+              <table>
+              {% for m in months | reverse %}
+              <tr><td>{{ m.naam }}</td><td align="right"><b>€ {{ '%.2f' | format(m.totaal) | replace('.', ',') }}</b></td>
+              <td>{{ '█' * ((m.totaal / top * 12) | round(0, 'ceil') | int) if top else '' }}</td>
+              <td>{{ m.bonnen }} bonnen</td></tr>
+              {% endfor %}
+              </table>
+          - type: markdown
             title: Recente bonnen
             content: |
               {% set recent = state_attr('sensor.albert_heijn_laatste_kassabon', 'recent') or [] %}

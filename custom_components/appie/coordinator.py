@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -58,6 +58,7 @@ from .models import (
     open_products,
     parse_total_price,
     month_total,
+    monthly_totals,
     parse_bargains,
     parse_bonus_box,
     parse_bonus_section,
@@ -76,6 +77,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Receipts are paged; stop after this many pages even if the month is longer.
 MAX_RECEIPT_PAGES = 4
+# Spending per month over this many months; older months are fetched once a day.
+HISTORY_MONTHS = 12
+MAX_HISTORY_PAGES = 24
 
 
 @dataclass
@@ -190,6 +194,7 @@ class ReceiptsData:
     latest_detail: ReceiptDetail | None
     month_total: float
     month_count: int
+    per_month: list[dict] = field(default_factory=list)
 
 
 class ReceiptsCoordinator(_AppieCoordinator[ReceiptsData]):
@@ -198,18 +203,34 @@ class ReceiptsCoordinator(_AppieCoordinator[ReceiptsData]):
     def __init__(self, hass, entry, client) -> None:
         super().__init__(hass, entry, client, "kassabonnen", RECEIPTS_INTERVAL)
         self._details: dict[str, ReceiptDetail] = {}
+        # Receipts of earlier months: they don't change, so fetched once a day.
+        self._history: list[Receipt] = []
+        self._history_day: date | None = None
 
     async def _fetch(self) -> ReceiptsData:
         tz = dt_util.get_default_time_zone()
         today = dt_util.now().date()
         month_start = today.replace(day=1)
-        receipts: list[Receipt] = []
-        for page in range(MAX_RECEIPT_PAGES):
+        need_history = self._history_day != today
+        oldest = month_start
+        if need_history:
+            for _ in range(HISTORY_MONTHS - 1):
+                oldest = (oldest - timedelta(days=1)).replace(day=1)
+        fetched: list[Receipt] = []
+        for page in range(MAX_HISTORY_PAGES if need_history else MAX_RECEIPT_PAGES):
             batch = parse_receipts(await self.client.get_receipts(page * RECEIPTS_PAGE_SIZE, RECEIPTS_PAGE_SIZE))
-            receipts.extend(batch)
-            if len(batch) < RECEIPTS_PAGE_SIZE or batch[-1].day(tz) < month_start:
+            fetched.extend(batch)
+            if len(batch) < RECEIPTS_PAGE_SIZE or batch[-1].day(tz) < oldest:
                 break
-        receipts.sort(key=lambda r: r.when, reverse=True)
+        fetched.sort(key=lambda r: r.when, reverse=True)
+        if need_history:
+            self._history = [r for r in fetched if r.day(tz) < month_start]
+            self._history_day = today
+        # The picker gets what a normal fetch returns (this month, at least a page), not the year.
+        in_month = sum(1 for r in fetched if r.day(tz) >= month_start)
+        receipts = fetched[: max(in_month, RECEIPTS_PAGE_SIZE)]
+        known = {r.id for r in fetched}
+        year = fetched + [r for r in self._history if r.id not in known]
         latest = receipts[0] if receipts else None
         if latest and latest.id not in self._details:
             self._details = {latest.id: parse_receipt_detail(await self.client.get_receipt_detail(latest.id))}
@@ -220,6 +241,7 @@ class ReceiptsCoordinator(_AppieCoordinator[ReceiptsData]):
             latest_detail=self._details.get(latest.id) if latest else None,
             month_total=month_total(receipts, today, tz),
             month_count=len(this_month),
+            per_month=monthly_totals(year, today, tz, HISTORY_MONTHS),
         )
 
 
