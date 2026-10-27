@@ -18,7 +18,7 @@ from custom_components.appie.models import (
     parse_settlements,
 )
 
-from .common import LOYALTY, STAMPS, TOKENS, WALLET, setup_appie
+from .common import LOYALTY, PREMIUM, STAMPS, TOKENS, WALLET, setup_appie
 from .test_models import LIST
 
 
@@ -51,6 +51,13 @@ def test_current_programs_skip_ended_and_get_points() -> None:
 def test_ended_challenge_is_not_counted() -> None:
     challenges = parse_challenges(LOYALTY["loyaltyChallenges"], date(2099, 2, 1))
     assert challenges[0]["afgelopen"] is True
+
+
+def test_premium_from_savings_when_current_is_null() -> None:
+    # Seen live: Premium member, subscriptionCurrent null, savings filled.
+    parsed = parse_premium({**PREMIUM, "subscriptionCurrent": None})
+    assert parsed["actief"] is True and parsed["lid_sinds"] == "2023-08-12"
+    assert parsed["totaal_bespaard"] == 191.31 and parsed["extra_koopzegels"] == 12442
 
 
 def test_premium_without_subscription() -> None:
@@ -92,6 +99,8 @@ async def test_savings_sensors(hass: HomeAssistant, api) -> None:
     assert premium.state == "actief" and premium.attributes["eind"] == "2026-12-31"
     assert hass.states.get("sensor.albert_heijn_premium_besparing").state == "123.46"
     assert premium.attributes["besparing_per_jaar"] == 123.46
+    saved = hass.states.get("sensor.albert_heijn_premium_bespaard")
+    assert saved.state == "191.31" and saved.attributes["lid_sinds"] == "2023-08-12"
 
     gift = hass.states.get("sensor.albert_heijn_cadeaukaarten")
     assert gift.state == "25.0" and gift.attributes["aantal"] == 1

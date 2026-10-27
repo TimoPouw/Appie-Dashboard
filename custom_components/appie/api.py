@@ -259,6 +259,19 @@ PREMIUM_QUERY = """query FetchPremium($type: String!) {
     estimatedRemainingDaysSavedAmount averageDailySavedAmount
   }
   subscriptionSavingPotential { premiumSavingPotential }
+  subscriptionPremiumSavingsV2 {
+    lastUpdated subscriptionStartDate
+    totalSavedAmount { amount }
+    bonusBoxDiscountAmount { amount }
+    bonusBoxDiscountPremiumExclusiveAmount { amount }
+    bioDiscountAmount { amount }
+    deliveryBundleDiscountAmount { amount }
+    additionalAirmilesObtained
+    additionalAirmilesObtainedInMoney { amount }
+    additionalPurchaseStampsObtained
+    additionalPurchaseStampsInterest { amount }
+    totalAdditionalStamps
+  }
 }"""
 
 WALLET_QUERY = """query FetchWallet {
@@ -266,8 +279,9 @@ WALLET_QUERY = """query FetchWallet {
   settlementsTotal { totalAmount { amount } settlements { __typename } }
 }"""
 
-# subscriptionCurrent(type:) takes a String. Checked live: "PREMIUM" is accepted
-# (null without a subscription), "AH_PREMIUM" and "DELIVERY_BUNDLE" are not.
+# subscriptionCurrent(type:) takes a String. Checked live: "PREMIUM" is accepted,
+# "AH_PREMIUM" and "DELIVERY_BUNDLE" are not. On an account with Premium it still
+# answered null, so whether you have Premium comes from subscriptionPremiumSavingsV2.
 PREMIUM_TYPE = "PREMIUM"
 
 
@@ -691,12 +705,14 @@ class AppieClient:
         return (data.get("data") or {}).get("loyaltyPointsBalances") or []
 
     async def get_premium(self) -> dict:
-        """AH Premium and its savings: GraphQL subscriptionCurrent and estimates. (inferred)
+        """AH Premium and its savings: GraphQL subscriptionPremiumSavingsV2 and more. (inferred)
 
-        AH's validation error says subscriptionCurrent needs type: String!;
-        PREMIUM_TYPE is the value. The two estimates take no arguments. A
-        member without Premium can get an error on subscriptionCurrent only,
-        hence partial.
+        subscriptionPremiumSavingsV2 (what Premium saved you so far, and since
+        when you have it) takes no arguments and was checked live on an account
+        with Premium. subscriptionCurrent(type:) turned out to stay null on
+        that account for every type tried, so it only adds details when AH does
+        fill it. The estimates take no arguments. Any part can error on its
+        own, hence partial.
         """
         return (await self._graphql(PREMIUM_QUERY, {"type": PREMIUM_TYPE}, partial=True)).get("data") or {}
 

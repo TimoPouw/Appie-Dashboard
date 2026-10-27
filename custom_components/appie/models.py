@@ -1082,21 +1082,25 @@ def parse_challenges(raw: list[dict] | None, today: date) -> list[dict]:
 
 
 def parse_premium(raw: dict | None) -> dict[str, Any] | None:
-    """subscriptionCurrent plus AH's estimate of what Premium saves you.
+    """AH Premium: since when, what it saved you, and AH's estimate per year.
 
-    The estimate is there without a subscription too: then it is what
-    Premium would have saved, based on your purchases.
+    subscriptionPremiumSavingsV2 has a start date only for a member with
+    Premium (inferred from a live account with Premium); subscriptionCurrent
+    is used when AH fills it. The estimate is there without Premium too: then
+    it is what Premium would save, based on your purchases.
     """
     if not raw:
         return None
     current = raw.get("subscriptionCurrent") or {}
     estimate = raw.get("subscriptionEstimatedPremiumSavings") or {}
     potential = raw.get("subscriptionSavingPotential") or {}
-    if not (current or estimate or potential):
+    saved = raw.get("subscriptionPremiumSavingsV2") or {}
+    if not (current or estimate or potential or saved):
         return None
     extension = current.get("extension") or {}
     return {
-        "actief": bool(current.get("isActive")),
+        "actief": bool(current.get("isActive") or saved.get("subscriptionStartDate")),
+        "lid_sinds": saved.get("subscriptionStartDate") or current.get("startDate"),
         "omschrijving": current.get("description"),
         "start": current.get("startDate"),
         "eind": current.get("endDate"),
@@ -1104,6 +1108,17 @@ def parse_premium(raw: dict | None) -> dict[str, Any] | None:
         "prijs": _amount(current.get("sellPrice")),
         "verlenging": extension.get("date"),
         "prijs_verlenging": _amount(extension.get("sellPrice")),
+        "totaal_bespaard": _amount(saved.get("totalSavedAmount")),
+        "bespaard_bonus_box": _amount(saved.get("bonusBoxDiscountAmount")),
+        "bespaard_bonus_box_alleen_premium": _amount(saved.get("bonusBoxDiscountPremiumExclusiveAmount")),
+        "bespaard_bio": _amount(saved.get("bioDiscountAmount")),
+        "bespaard_bezorgbundel": _amount(saved.get("deliveryBundleDiscountAmount")),
+        "extra_air_miles": _int(saved.get("additionalAirmilesObtained")),
+        "extra_air_miles_waarde": _amount(saved.get("additionalAirmilesObtainedInMoney")),
+        "extra_koopzegels": _int(saved.get("additionalPurchaseStampsObtained")),
+        "extra_koopzegels_rente": _amount(saved.get("additionalPurchaseStampsInterest")),
+        "extra_zegels_totaal": _int(saved.get("totalAdditionalStamps")),
+        "bijgewerkt": saved.get("lastUpdated"),
         "actieve_dagen": _int(estimate.get("subscriptionActiveDays")),
         "besparing_per_jaar": _money(estimate.get("estimatedYearlySavedAmount")),
         "zegels_per_jaar": _int(estimate.get("estimatedYearlySavedStampsAmount")),

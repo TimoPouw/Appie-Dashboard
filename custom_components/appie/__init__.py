@@ -123,28 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.
     entry.async_create_background_task(hass, favorites.async_refresh(), f"{entry.entry_id} favorites")
-    entry.async_create_background_task(hass, _probe(client), "appie probe")
     return True
-
-
-async def _probe(client: AppieClient) -> None:
-    """TEMPORARY: find the evalue account type (verrekeningen as credit)."""
-    import logging
-
-    log = logging.getLogger(__name__)
-    queries = {"history_args": "{ evalueTransactionHistory { __typename } }"}
-    for kind in ("SETTLEMENT", "SETTLEMENTS", "CUSTOMER", "MEMBER", "DEFAULT", "WALLET", "EVALUE", "AH", "AHWEBSHOP",
-                 "CONSUMER", "PERSONAL", "B2C", "CREDIT", "SHOP_CREDIT", "STORE_CREDIT", "REFUND", "LOYALTY", "PREMIUM",
-                 "settlement", "customer", "member", "MAIN", "PRIMARY", "TEGOED", "SHOPTEGOED", "BALANCE"):
-        queries[f"evalue_{kind}"] = (
-            f'{{ evalueAccountBalance(accountType: "{kind}") {{ value {{ amount formatted }} available {{ amount formatted }} }} }}'
-        )
-    for name, query in queries.items():
-        try:
-            data = await client._request("POST", "/graphql", {"query": "query Probe " + query, "variables": {}}, graphql_errors=True)
-            log.warning("appie probe %s: %s", name, str(data)[:500])
-        except Exception as err:  # noqa: BLE001
-            log.warning("appie probe %s: %s", name, str(err)[:300])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> bool:

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1
+
+### Opgelost
+
+- **Premium stond op "niet actief" terwijl je Premium hebt.** AH vult de abonnementsgegevens (`subscriptionCurrent`) bij een Premium-lid niet. Of je Premium hebt, komt nu uit `subscriptionPremiumSavingsV2`, met een startdatum en wat je bespaarde.
+
+### Nieuw
+
+- `sensor.albert_heijn_premium_bespaard`: wat Premium je heeft bespaard sinds je het hebt (€), met de Bonus Box, bio, extra koopzegels en Air Miles als attributen.
+- `sensor.albert_heijn_premium` heeft er attributen bij: `lid_sinds`, `totaal_bespaard`, `extra_koopzegels`, `extra_air_miles` en meer.
+
 ## 0.5.0
 
 ### Nieuw

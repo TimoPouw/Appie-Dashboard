@@ -201,6 +201,13 @@ PREMIUM = {
         "estimatedRemainingDaysSavedAmount": 20.5, "averageDailySavedAmount": 0.34,
     },
     "subscriptionSavingPotential": {"premiumSavingPotential": 50.0},
+    "subscriptionPremiumSavingsV2": {
+        "lastUpdated": "2026-10-26", "subscriptionStartDate": "2023-08-12", "totalSavedAmount": {"amount": 191.31},
+        "bonusBoxDiscountAmount": {"amount": 178.21}, "bonusBoxDiscountPremiumExclusiveAmount": {"amount": 20.0},
+        "bioDiscountAmount": {"amount": 3.99}, "deliveryBundleDiscountAmount": None, "additionalAirmilesObtained": 4464,
+        "additionalAirmilesObtainedInMoney": {"amount": 44.64}, "additionalPurchaseStampsObtained": 12442,
+        "additionalPurchaseStampsInterest": {"amount": 2.5}, "totalAdditionalStamps": 12442,
+    },
 }
 WALLET = {
     "paymentsGetGiftCards": [
