@@ -17,6 +17,12 @@ from .common import (
     SPOTLIGHT,
     STORE,
     TOTAL_PRICE,
+    LOYALTY,
+    LOYALTY_BALANCES,
+    MILES,
+    PREMIUM,
+    STAMPS,
+    WALLET,
 )
 from .test_models import DETAIL, LIST, PERSONAL, PREVIOUS, RECEIPTS
 
@@ -56,6 +62,12 @@ def api():
         "get_favorite_list_items": AsyncMock(return_value=FAVORITE_LIST_ITEMS),
         "add_to_favorite_list": AsyncMock(),
         "get_receipt_pdf": AsyncMock(return_value=b"%PDF-1.4 kassabon"),
+        "get_purchase_stamps": AsyncMock(return_value=STAMPS),
+        "get_miles": AsyncMock(return_value=MILES),
+        "get_loyalty": AsyncMock(return_value=LOYALTY),
+        "get_loyalty_balances": AsyncMock(return_value=LOYALTY_BALANCES),
+        "get_premium": AsyncMock(return_value=PREMIUM),
+        "get_wallet": AsyncMock(return_value=WALLET),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]
     patches.append(patch("custom_components.appie.coordinator.FAVORITES_DAYS", 100_000))

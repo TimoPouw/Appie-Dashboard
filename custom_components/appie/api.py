@@ -76,6 +76,8 @@ REDACT_KEYS = frozenset(
         "name",
         "cards",
         "memberId",
+        "cardNumber",
+        "cardId",
         "analytics",
     }
 )
@@ -203,6 +205,66 @@ $products: [FavoriteListProductMutation!]!) {
     errorMessage
   }
 }"""
+
+
+# Savings queries. Field names are from appie-go doc/graphql-schema-20260118.md;
+# which root fields need arguments (and which of those are lists) was checked
+# against AH's own validation errors, as with the Bonus Box activation.
+PURCHASE_STAMPS_QUERY = """query FetchPurchaseStampBalance {
+  purchaseStampBalance {
+    points { totalPoints currentBookletPoints fullBooklets }
+    money { invested { amount } interest { amount } payout { amount } }
+    constants {
+      price { amount }
+      partialBookletTarget { points interest { amount } }
+      fullBookletTarget { points interest { amount } }
+    }
+  }
+}"""
+
+MILES_QUERY = """query FetchMilesBalance {
+  milesBalance { balance errorState }
+}"""
+
+LOYALTY_QUERY = """query FetchLoyalty {
+  loyaltyPrograms {
+    id name type status
+    savingPeriod { start end }
+    redeemPeriod { start end }
+    content { title subtitle stamps { stampsPerCard } }
+  }
+  loyaltyChallenges {
+    id name status statusMessage
+    info { title description }
+    reward { label subtitle duration { start end } }
+    steps { id status label subtitle progress maxProgress duration { start end } }
+  }
+}"""
+
+LOYALTY_BALANCES_QUERY = """query FetchLoyaltyPointsBalances($programIds: [Int!]!) {
+  loyaltyPointsBalances(programIds: $programIds) { programId balance }
+}"""
+
+PREMIUM_QUERY = """query FetchPremium($type: String!) {
+  subscriptionCurrent(type: $type) {
+    description isActive isTrialSubscription startDate endDate
+    sellPrice { amount }
+    extension { date sellPrice { amount } }
+  }
+  subscriptionEstimatedPremiumSavings {
+    subscriptionActiveDays estimatedYearlySavedAmount estimatedYearlySavedStampsAmount
+    estimatedRemainingDaysSavedAmount averageDailySavedAmount
+  }
+  subscriptionSavingPotential { premiumSavingPotential }
+}"""
+
+WALLET_QUERY = """query FetchWallet {
+  paymentsGetGiftCards { cardNumber status createdDate balance { amount { amount } } }
+  settlementsTotal { totalAmount { amount } settlements { __typename } }
+}"""
+
+# subscriptionCurrent(type:) takes a String; this is the value for AH Premium.
+PREMIUM_TYPE = "PREMIUM"
 
 
 class AppieError(Exception):
@@ -350,10 +412,13 @@ class AppieClient:
                 raise AppieError(f"{method} {path}: {err}") from err
         raise AppieError(f"{method} {path}: failed")
 
-    async def _graphql(self, query: str, variables: dict[str, Any]) -> dict:
+    async def _graphql(self, query: str, variables: dict[str, Any], *, partial: bool = False) -> dict:
+        """Run a query; partial keeps the fields that resolved when others failed."""
         data = await self._request("POST", "/graphql", {"query": query, "variables": variables})
         if errors := (data or {}).get("errors"):
-            raise AppieError(f"graphql: {errors[0].get('message')}")
+            if not (partial and (data or {}).get("data")):
+                raise AppieError(f"graphql: {errors[0].get('message')}")
+            _LOGGER.debug("graphql partial result: %s", [e.get("message") for e in errors])
         return data
 
     # shopping list
@@ -590,3 +655,51 @@ class AppieClient:
         is passed as a string there, so here too.
         """
         return await self._graphql(BARGAINS_QUERY, {"storeId": str(store_id)})
+
+    # savings (all read-only)
+
+    async def get_purchase_stamps(self) -> dict | None:
+        """Koopzegel balance: GraphQL purchaseStampBalance. (inferred)
+
+        appie-go lists the field and its types in the schema dump but has no
+        query for it. AH accepts it without arguments (checked live).
+        """
+        return ((await self._graphql(PURCHASE_STAMPS_QUERY, {})).get("data") or {}).get("purchaseStampBalance")
+
+    async def get_miles(self) -> dict | None:
+        """Air Miles balance: GraphQL milesBalance. (inferred, from the schema dump)"""
+        return ((await self._graphql(MILES_QUERY, {})).get("data") or {}).get("milesBalance")
+
+    async def get_loyalty(self) -> dict:
+        """Spaaracties and challenges: GraphQL loyaltyPrograms and loyaltyChallenges. (inferred)
+
+        Both are in the schema dump without a query in appie-go; AH accepts
+        them without arguments (checked live). Either may be missing.
+        """
+        return (await self._graphql(LOYALTY_QUERY, {}, partial=True)).get("data") or {}
+
+    async def get_loyalty_balances(self, program_ids: list[int]) -> list[dict]:
+        """Points per spaaractie: GraphQL loyaltyPointsBalances. (inferred)
+
+        AH's validation error names the one argument: programIds: [Int!]!.
+        """
+        data = await self._graphql(LOYALTY_BALANCES_QUERY, {"programIds": [int(i) for i in program_ids]})
+        return (data.get("data") or {}).get("loyaltyPointsBalances") or []
+
+    async def get_premium(self) -> dict:
+        """AH Premium and its savings: GraphQL subscriptionCurrent and estimates. (inferred)
+
+        AH's validation error says subscriptionCurrent needs type: String!;
+        PREMIUM_TYPE is the value. The two estimates take no arguments. A
+        member without Premium can get an error on subscriptionCurrent only,
+        hence partial.
+        """
+        return (await self._graphql(PREMIUM_QUERY, {"type": PREMIUM_TYPE}, partial=True)).get("data") or {}
+
+    async def get_wallet(self) -> dict:
+        """Gift cards and open credit: GraphQL paymentsGetGiftCards and settlementsTotal. (inferred)
+
+        Both from the schema dump, both accepted without arguments (checked
+        live). Read-only: no card is added, charged or redeemed.
+        """
+        return (await self._graphql(WALLET_QUERY, {}, partial=True)).get("data") or {}

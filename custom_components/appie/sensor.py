@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from dataclasses import asdict
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
@@ -24,11 +25,12 @@ from .coordinator import (
     ListCostCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
+    SavingsCoordinator,
     SpotlightCoordinator,
     StoreCoordinator,
 )
 from .entity import device_info
-from .models import SOURCE_PERSONAL, favorite_attributes, open_products, receipt_view
+from .models import SOURCE_PERSONAL, favorite_attributes, missed_bonus, open_products, receipt_view
 
 RECENT_RECEIPTS = 10
 
@@ -53,6 +55,8 @@ async def async_setup_entry(
             SpotlightSensor(entry, data.spotlight),
             BonusBoxSensor(entry, data.bonus_box),
             FavoriteListsSensor(entry, data.favorite_lists),
+            MissedBonusSensor(entry, data.favorites),
+            *(SavingsSensor(entry, data.savings, description) for description in SAVINGS_SENSORS),
         ]
     )
 
@@ -417,3 +421,179 @@ class FavoriteListsSensor(_Base, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"lijsten": [asdict(fl) for fl in self.coordinator.data or []]}
+
+
+class MissedBonusSensor(_Base, SensorEntity):
+    """Products we buy often that are in the bonus now, but not on the list."""
+
+    _attr_icon = "mdi:sale-outline"
+    _attr_native_unit_of_measurement = "producten"
+    _unrecorded_attributes = frozenset({"producten"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: FavoritesCoordinator) -> None:
+        super().__init__(entry, coordinator, "gemiste_bonus", "Gemiste bonus")
+        self._list = entry.runtime_data.shopping_list
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self._list.async_add_listener(self.async_write_ha_state))
+
+    def _products(self) -> list[dict[str, Any]]:
+        return missed_bonus(self.coordinator.data or [], self._list.data or [])
+
+    @property
+    def native_value(self) -> int:
+        return len(self._products())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"producten": self._products()}
+
+
+@dataclass(frozen=True, kw_only=True)
+class SavingsDescription:
+    """One savings sensor: which part of Savings it shows, and how."""
+
+    key: str
+    name: str
+    icon: str
+    part: str
+    value: Callable[[Any], Any]
+    attributes: Callable[[Any], dict[str, Any]] = lambda part: {}
+    unit: str | None = None
+    device_class: SensorDeviceClass | None = None
+    options: list[str] | None = None
+
+
+def _stamps_value(stamps: dict) -> float | None:
+    if stamps.get("uitbetaling") is not None:
+        return stamps["uitbetaling"]
+    if stamps.get("ingelegd") is None:
+        return None
+    return round(stamps["ingelegd"] + (stamps.get("rente") or 0), 2)
+
+
+SAVINGS_SENSORS = (
+    SavingsDescription(
+        key="koopzegels",
+        name="Koopzegels",
+        icon="mdi:ticket-percent",
+        part="stamps",
+        unit="zegels",
+        value=lambda s: s.get("zegels"),
+        attributes=lambda s: {k: v for k, v in s.items() if k != "zegels"},
+    ),
+    SavingsDescription(
+        key="koopzegels_waarde",
+        name="Koopzegels waarde",
+        icon="mdi:piggy-bank",
+        part="stamps",
+        unit="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        value=_stamps_value,
+    ),
+    SavingsDescription(
+        key="air_miles",
+        name="Air Miles",
+        icon="mdi:airplane",
+        part="miles",
+        unit="Air Miles",
+        value=lambda m: m.get("saldo"),
+        attributes=lambda m: {"fout": m.get("fout")},
+    ),
+    SavingsDescription(
+        key="spaaracties",
+        name="Spaaracties",
+        icon="mdi:star-shooting",
+        part="programs",
+        unit="acties",
+        value=len,
+        attributes=lambda p: {"met_punten": sum(bool(a.get("punten")) for a in p), "acties": p},
+    ),
+    SavingsDescription(
+        key="uitdagingen",
+        name="Uitdagingen",
+        icon="mdi:flag-checkered",
+        part="challenges",
+        unit="uitdagingen",
+        value=len,
+        attributes=lambda c: {"uitdagingen": c},
+    ),
+    SavingsDescription(
+        key="premium",
+        name="Premium",
+        icon="mdi:crown",
+        part="premium",
+        device_class=SensorDeviceClass.ENUM,
+        options=["actief", "niet actief"],
+        value=lambda p: "actief" if p.get("actief") else "niet actief",
+        attributes=lambda p: {k: v for k, v in p.items() if k != "actief"},
+    ),
+    SavingsDescription(
+        key="premium_besparing",
+        name="Premium besparing",
+        icon="mdi:cash-check",
+        part="premium",
+        unit="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        value=lambda p: p.get("bespaard_per_jaar") if p.get("actief") else None,
+        attributes=lambda p: {
+            "bespaard_rest_periode": p.get("bespaard_rest_periode"),
+            "bespaard_per_dag": p.get("bespaard_per_dag"),
+            "zegels_per_jaar": p.get("zegels_per_jaar"),
+        },
+    ),
+    SavingsDescription(
+        key="cadeaukaarten",
+        name="Cadeaukaarten",
+        icon="mdi:wallet-giftcard",
+        part="gift_cards",
+        unit="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        value=lambda c: round(sum(k.get("saldo") or 0 for k in c), 2),
+        attributes=lambda c: {"aantal": len(c), "kaarten": c},
+    ),
+    SavingsDescription(
+        key="openstaand_tegoed",
+        name="Openstaand tegoed",
+        icon="mdi:cash-refund",
+        part="settlements",
+        unit="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        value=lambda t: t.get("totaal"),
+        attributes=lambda t: {"aantal": t.get("aantal")},
+    ),
+)
+
+
+class SavingsSensor(_Base, SensorEntity):
+    """One part of SavingsCoordinator; unavailable while AH doesn't give it."""
+
+    # Lists that change with every receipt; keep them out of the database.
+    _unrecorded_attributes = frozenset({"acties", "uitdagingen", "kaarten"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: SavingsCoordinator, description: SavingsDescription) -> None:
+        super().__init__(entry, coordinator, description.key, description.name)
+        self._description = description
+        self._attr_icon = description.icon
+        self._attr_native_unit_of_measurement = description.unit
+        self._attr_device_class = description.device_class
+        self._attr_options = description.options
+
+    def _part(self) -> Any:
+        data = self.coordinator.data
+        return getattr(data, self._description.part) if data else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._part() is not None
+
+    @property
+    def native_value(self) -> Any:
+        part = self._part()
+        return self._description.value(part) if part is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        part = self._part()
+        return self._description.attributes(part) if part is not None else {}

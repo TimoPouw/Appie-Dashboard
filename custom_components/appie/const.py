@@ -38,6 +38,9 @@ STORE_INTERVAL = timedelta(hours=12)
 BARGAINS_INTERVAL = timedelta(minutes=30)
 EVENT_BARGAIN_FAVORITE = "appie_koopje_favoriet"
 FAVORITE_LISTS_INTERVAL = timedelta(minutes=30)
+# Koopzegels, Air Miles, spaaracties, Premium and credit only change when you
+# shop; a new receipt triggers an extra refresh.
+SAVINGS_INTERVAL = timedelta(hours=3)
 
 # How many receipts to fetch per update (covers well over a month).
 RECEIPTS_PAGE_SIZE = 50

@@ -148,3 +148,63 @@ async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockC
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     return entry
+
+
+# Savings, in the shapes of doc/graphql-schema-20260118.md.
+STAMPS = {
+    "points": {"totalPoints": 212, "currentBookletPoints": 32, "fullBooklets": 1},
+    "money": {"invested": {"amount": 21.2}, "interest": {"amount": 0.54}, "payout": {"amount": 21.74}},
+    "constants": {
+        "price": {"amount": 0.1},
+        "partialBookletTarget": {"points": 90, "interest": {"amount": 0.27}},
+        "fullBookletTarget": {"points": 180, "interest": {"amount": 0.54}},
+    },
+}
+MILES = {"balance": 1234, "errorState": None}
+LOYALTY = {
+    "loyaltyPrograms": [
+        {
+            "id": 7, "name": "pannen", "type": "STAMPS", "status": "ACTIVE",
+            "savingPeriod": {"start": "2026-10-01", "end": "2099-12-31"},
+            "redeemPeriod": {"start": "2026-10-01", "end": "2099-12-31"},
+            "content": {"title": "Spaar voor pannen", "subtitle": "1 zegel per 10 euro", "stamps": {"stampsPerCard": 30}},
+        },
+        {
+            "id": 3, "name": "oud", "type": "STAMPS", "status": "ENDED",
+            "savingPeriod": {"start": "2020-01-01", "end": "2020-02-01"},
+            "redeemPeriod": {"start": "2020-01-01", "end": "2020-03-01"},
+            "content": {"title": "Oude actie"},
+        },
+    ],
+    "loyaltyChallenges": [
+        {
+            "id": 5, "name": "fruit", "status": "OPTED_IN", "statusMessage": None,
+            "info": {"title": "Fruitweek", "description": "Koop 3 keer fruit"},
+            "reward": {"label": "100 koopzegels", "subtitle": None, "duration": {"start": "2099-01-01", "end": "2099-01-31"}},
+            "steps": [
+                {"id": 1, "status": "IN_PROGRESS", "label": "Koop fruit", "subtitle": "3 keer", "progress": 1,
+                 "maxProgress": 3, "duration": {"start": "2026-10-20", "end": "2099-01-01"}},
+            ],
+        }
+    ],
+}
+LOYALTY_BALANCES = [{"programId": 7, "balance": 12}]
+PREMIUM = {
+    "subscriptionCurrent": {
+        "description": "AH Premium", "isActive": True, "isTrialSubscription": False,
+        "startDate": "2026-01-01", "endDate": "2026-12-31", "sellPrice": {"amount": 39.0},
+        "extension": {"date": "2027-01-01", "sellPrice": {"amount": 39.0}},
+    },
+    "subscriptionEstimatedPremiumSavings": {
+        "subscriptionActiveDays": 300, "estimatedYearlySavedAmount": 123.456, "estimatedYearlySavedStampsAmount": 900,
+        "estimatedRemainingDaysSavedAmount": 20.5, "averageDailySavedAmount": 0.34,
+    },
+    "subscriptionSavingPotential": {"premiumSavingPotential": 50.0},
+}
+WALLET = {
+    "paymentsGetGiftCards": [
+        {"cardNumber": "6299001234567890", "status": "ACTIVE", "createdDate": "2026-05-01T10:00:00Z",
+         "balance": {"amount": {"amount": 25.0}}},
+    ],
+    "settlementsTotal": {"totalAmount": {"amount": 3.5}, "settlements": [{"__typename": "SettlementV2"}]},
+}

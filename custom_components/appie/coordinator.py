@@ -34,6 +34,7 @@ from .const import (
     LIST_INTERVAL,
     RECEIPTS_INTERVAL,
     RECEIPTS_PAGE_SIZE,
+    SAVINGS_INTERVAL,
     STORE_INTERVAL,
 )
 from .models import (
@@ -71,6 +72,14 @@ from .models import (
     rank_purchases,
     receipt_lines,
     relevant_bonus,
+    add_program_balances,
+    current_programs,
+    parse_challenges,
+    parse_gift_cards,
+    parse_miles,
+    parse_premium,
+    parse_purchase_stamps,
+    parse_settlements,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,6 +108,7 @@ class AppieData:
     spotlight: SpotlightCoordinator
     bonus_box: BonusBoxCoordinator
     favorite_lists: FavoriteListsCoordinator
+    savings: SavingsCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -537,3 +547,80 @@ class ReceiptViewerCoordinator(_AppieCoordinator[ViewedReceipt | None]):
     async def async_select(self, receipt_id: str) -> None:
         self.selected = receipt_id
         await self.async_refresh()
+
+
+@dataclass
+class Savings:
+    """What you save at AH; a part is None when AH doesn't (yet) give it."""
+
+    stamps: dict | None = None
+    miles: dict | None = None
+    programs: list[dict] | None = None
+    challenges: list[dict] | None = None
+    premium: dict | None = None
+    gift_cards: list[dict] | None = None
+    settlements: dict | None = None
+
+
+class SavingsCoordinator(_AppieCoordinator[Savings]):
+    """Koopzegels, Air Miles, spaaracties, challenges, Premium and credit.
+
+    Each part is its own request: one that fails keeps its last value and
+    leaves the others alone.
+    """
+
+    def __init__(self, hass, entry, client, receipts: ReceiptsCoordinator) -> None:
+        super().__init__(hass, entry, client, "sparen", SAVINGS_INTERVAL)
+        self._receipts = receipts
+        self._latest_receipt: str | None = None
+
+    async def _part(self, name: str, fetch):
+        try:
+            return True, await fetch()
+        except AppieAuthError:
+            raise
+        except AppieError as err:
+            _LOGGER.debug("%s not available: %s", name, err)
+            return False, None
+
+    async def _fetch(self) -> Savings:
+        old = self.data or Savings()
+        new = replace(old)
+        ok, raw = await self._part("koopzegels", self.client.get_purchase_stamps)
+        if ok:
+            new.stamps = parse_purchase_stamps(raw)
+        ok, raw = await self._part("air miles", self.client.get_miles)
+        if ok:
+            new.miles = parse_miles(raw)
+        ok, raw = await self._part("spaaracties", self.client.get_loyalty)
+        if ok:
+            programs = current_programs(raw.get("loyaltyPrograms"), dt_util.now().date())
+            if programs:
+                ids = [p["id"] for p in programs]
+                ok_points, points = await self._part("spaarpunten", lambda: self.client.get_loyalty_balances(ids))
+                if ok_points:
+                    programs = add_program_balances(programs, points)
+            new.programs = programs if raw.get("loyaltyPrograms") is not None else old.programs
+            new.challenges = (
+                parse_challenges(raw.get("loyaltyChallenges"))
+                if raw.get("loyaltyChallenges") is not None
+                else old.challenges
+            )
+        ok, raw = await self._part("premium", self.client.get_premium)
+        if ok:
+            new.premium = parse_premium(raw)
+        ok, raw = await self._part("tegoeden", self.client.get_wallet)
+        if ok:
+            if raw.get("paymentsGetGiftCards") is not None:
+                new.gift_cards = parse_gift_cards(raw["paymentsGetGiftCards"])
+            if raw.get("settlementsTotal") is not None:
+                new.settlements = parse_settlements(raw["settlementsTotal"])
+        return new
+
+    def receipts_changed(self) -> None:
+        """A new receipt means new koopzegels or points: fetch again."""
+        latest = self._receipts.data.latest if self._receipts.data else None
+        latest_id = latest.id if latest else None
+        if self._latest_receipt is not None and latest_id != self._latest_receipt:
+            self.hass.async_create_task(self.async_request_refresh())
+        self._latest_receipt = latest_id
