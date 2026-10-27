@@ -254,6 +254,25 @@ al_op_lijst:
     title: AH Roomboter
 ```
 
+**`appie.activate_bonus`**: activeert een aanbieding uit je Bonus Box, met `aanbieding` (id of naam uit het attribuut `aanbiedingen` van `sensor.albert_heijn_bonus_box`). Je kunt er maximaal zoveel activeren als `max_activaties`.
+
+```yaml
+action: appie.activate_bonus
+data:
+  aanbieding: AH Hummus
+response_variable: resultaat
+```
+
+```yaml
+id: "385569"
+title: AH Hummus
+geactiveerd: true
+status: SUCCESS
+message: null
+```
+
+`geactiveerd` komt uit je Bonus Box ná het activeren, dus het zegt wat AH echt heeft gedaan. Deze aanroep staat niet beschreven in appie-go: de integratie vraagt AH eerst welke gegevens hij nodig heeft (zonder iets te activeren), vult alleen gegevens in waarvan duidelijk is wat ze betekenen, en stopt met een melding als AH iets anders vraagt.
+
 **`appie.get_receipt`**: een recente kassabon ophalen. Zonder `receipt_id` krijg je de laatste.
 
 ```yaml

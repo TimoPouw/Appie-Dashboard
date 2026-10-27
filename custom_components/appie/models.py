@@ -548,12 +548,52 @@ def parse_bonus_box(raw: dict) -> BonusBox:
                 "price": (price.get("now") or {}).get("amount"),
                 "price_was": (price.get("was") or {}).get("amount"),
                 "image": pick_image(promo.get("images")),
+                "hq_id": promo.get("hqId"),
                 "activated": promo.get("activationStatus") == "ACTIVATED",
                 "start_date": promo.get("periodStart"),
                 "end_date": promo.get("periodEnd"),
             }
         )
     return BonusBox(max_activations=bundles[0].get("maximumActivations") if bundles else None, offers=offers)
+
+
+# "Field 'x' argument 'id' of type 'String!' is required, but it was not provided."
+_REQUIRED_ARG = re.compile(r"argument '(\w+)' of type '([\w!\[\]]+)' is required")
+
+
+def required_arguments(messages: list[str]) -> list[tuple[str, str]]:
+    """(name, type) of the arguments a GraphQL validation error says are missing."""
+    found: list[tuple[str, str]] = []
+    for message in messages:
+        for name, kind in _REQUIRED_ARG.findall(message or ""):
+            if (name, kind) not in found:
+                found.append((name, kind))
+    return found
+
+
+def activation_values(args: list[tuple[str, str]], offer: dict) -> dict[str, Any] | None:
+    """Fill the activation mutation's arguments from a Bonus Box offer.
+
+    Only names whose meaning is clear are filled; None means an argument was
+    asked for that we can't map, so nothing is sent.
+    """
+    values: dict[str, Any] = {}
+    for name, kind in args:
+        key = name.lower()
+        if key in ("id", "promotionid", "bonuspromotionid", "segmentid", "personalpromotionid"):
+            value = offer.get("id")
+        elif key in ("hqid", "offerid"):
+            value = offer.get("hq_id")
+        elif key in ("periodstart", "startdate", "validon"):
+            value = offer.get("start_date")
+        elif key in ("periodend", "enddate"):
+            value = offer.get("end_date")
+        else:
+            return None
+        if value is None:
+            return None
+        values[name] = int(value) if kind.strip("!") == "Int" else str(value)
+    return values
 
 
 def bonus_period(raw_metadata: dict) -> tuple[str | None, str | None]:

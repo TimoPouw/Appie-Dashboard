@@ -34,6 +34,7 @@ SERVICE_GET_PRODUCT = "get_product"
 SERVICE_GET_PRODUCTS = "get_products"
 SERVICE_GET_SUBCATEGORIES = "get_subcategories"
 SERVICE_BONUS = "bonus"
+SERVICE_ACTIVATE_BONUS = "activate_bonus"
 SERVICE_GET_FAVORITE_LIST = "get_favorite_list"
 SERVICE_ADD_TO_FAVORITE_LIST = "add_to_favorite_list"
 SERVICE_FAVORITE_LIST_TO_LIST = "favorite_list_to_list"
@@ -46,6 +47,7 @@ ATTR_PRODUCT_IDS = "product_ids"
 ATTR_CATEGORY_ID = "categorie_id"
 ATTR_CATEGORY = "categorie"
 ATTR_LIST = "lijst"
+ATTR_OFFER = "aanbieding"
 
 # Enough results for add_product to find a product we often buy.
 ADD_PRODUCT_CANDIDATES = 20
@@ -83,6 +85,7 @@ ADD_TO_FAVORITE_LIST_SCHEMA = vol.All(
     ),
     cv.has_at_least_one_key(ATTR_QUERY, ATTR_PRODUCT_ID),
 )
+ACTIVATE_BONUS_SCHEMA = vol.Schema({vol.Required(ATTR_OFFER): vol.All(cv.string, vol.Length(min=1))})
 BONUS_SCHEMA = vol.Schema({vol.Optional(ATTR_CATEGORY): cv.string})
 RECEIPT_SCHEMA = vol.Schema({vol.Optional(ATTR_RECEIPT_ID): cv.string})
 
@@ -260,6 +263,42 @@ def async_setup_services(hass: HomeAssistant) -> None:
             await data.shopping_list.async_refresh()
         return {"lijst": found.naam, "toegevoegd": added, "al_op_lijst": already}
 
+    async def activate_bonus(call: ServiceCall) -> ServiceResponse:
+        data = _entry(hass).runtime_data
+        wanted = call.data[ATTR_OFFER].strip().lower()
+        box = data.bonus_box.data
+        offers = box.offers if box else []
+        offer = next((o for o in offers if str(o["id"]).lower() == wanted or o["title"].lower() == wanted), None)
+        if offer is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_offer",
+                translation_placeholders={"offer": call.data[ATTR_OFFER]},
+            )
+        if offer["activated"]:
+            return {"id": offer["id"], "title": offer["title"], "geactiveerd": True, "status": "al_geactiveerd"}
+        if box.max_activations is not None and box.activated >= box.max_activations:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="bonus_box_full",
+                translation_placeholders={"max": str(box.max_activations)},
+            )
+        try:
+            result = await data.client.activate_bonus_offer(offer)
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        await data.bonus_box.async_refresh()
+        refreshed = data.bonus_box.data.offers if data.bonus_box.data else []
+        after = next((o for o in refreshed if o["id"] == offer["id"]), None)
+        return {
+            "id": offer["id"],
+            "title": offer["title"],
+            # What AH's Bonus Box says afterwards, not just what the mutation answered.
+            "geactiveerd": bool(after and after["activated"]),
+            "status": result.get("status"),
+            "message": result.get("message"),
+        }
+
     async def bonus(call: ServiceCall) -> ServiceResponse:
         client = _entry(hass).runtime_data.client
         today = dt_util.now().date()
@@ -335,6 +374,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_FAVORITE_LIST_TO_LIST,
         favorite_list_to_list,
         schema=FAVORITE_LIST_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ACTIVATE_BONUS,
+        activate_bonus,
+        schema=ACTIVATE_BONUS_SCHEMA,
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(

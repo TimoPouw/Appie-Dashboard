@@ -1,14 +1,37 @@
 {
   "services": {
-    "search": {"service": "mdi:magnify"},
-    "add_product": {"service": "mdi:cart-plus"},
-    "get_product": {"service": "mdi:package-variant"},
-    "get_products": {"service": "mdi:package-variant-closed"},
-    "get_subcategories": {"service": "mdi:file-tree"},
-    "bonus": {"service": "mdi:sale"},
-    "get_favorite_list": {"service": "mdi:playlist-star"},
-    "add_to_favorite_list": {"service": "mdi:playlist-plus"},
-    "favorite_list_to_list": {"service": "mdi:playlist-play"},
-    "get_receipt": {"service": "mdi:receipt-text"}
+    "search": {
+      "service": "mdi:magnify"
+    },
+    "add_product": {
+      "service": "mdi:cart-plus"
+    },
+    "get_product": {
+      "service": "mdi:package-variant"
+    },
+    "get_products": {
+      "service": "mdi:package-variant-closed"
+    },
+    "get_subcategories": {
+      "service": "mdi:file-tree"
+    },
+    "bonus": {
+      "service": "mdi:sale"
+    },
+    "get_favorite_list": {
+      "service": "mdi:playlist-star"
+    },
+    "add_to_favorite_list": {
+      "service": "mdi:playlist-plus"
+    },
+    "favorite_list_to_list": {
+      "service": "mdi:playlist-play"
+    },
+    "get_receipt": {
+      "service": "mdi:receipt-text"
+    },
+    "activate_bonus": {
+      "service": "mdi:gift-open-outline"
+    }
   }
 }

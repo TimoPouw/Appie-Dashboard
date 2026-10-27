@@ -27,7 +27,8 @@ RECEIPTS_INTERVAL = timedelta(hours=1)
 FAVORITES_INTERVAL = timedelta(hours=12)
 # Follows list changes; prices themselves change with the bonus week.
 LIST_COST_INTERVAL = timedelta(hours=6)
-# A burst of list edits (ticking off five items) costs one call, this long after the first.
+# The first list edit is priced right away; a burst after it (ticking off five
+# items) costs one more call, at the end of this cooldown.
 LIST_COST_COOLDOWN = 60
 # "Vergeet niet": at most once per 15 minutes after a list change, else every 6 h.
 DONT_FORGET_INTERVAL = timedelta(hours=6)

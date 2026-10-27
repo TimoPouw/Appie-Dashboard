@@ -29,6 +29,7 @@ from .const import (
     TOKEN_REFRESH_MARGIN,
     USER_AGENT,
 )
+from .models import activation_values, required_arguments
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -416,6 +417,35 @@ class AppieClient:
             {"application": APPLICATION, "date": day.isoformat(), "promotionType": "NATIONAL", "category": category}
         )
         return await self._request("GET", f"/mobile-services/bonuspage/v2/section?{params}")
+
+    async def activate_bonus_offer(self, offer: dict) -> dict:
+        """Activate a Bonus Box offer: GraphQL bonusActivatePersonalPromotion. (inferred)
+
+        The mutation and its result type (status, message) are in appie-go's
+        schema dump, its arguments are not. So the mutation is first sent without
+        arguments: that fails validation, nothing is activated, and the error
+        names the required arguments and their types. They are then filled from
+        the offer (see models.activation_values) and the mutation is sent for
+        real. An argument we can't map stops it with an AppieError.
+        """
+        probe = "mutation ActivatePersonalPromotion { bonusActivatePersonalPromotion { __typename status message } }"
+        data = await self._request("POST", "/graphql", {"query": probe, "variables": {}})
+        errors = [e.get("message") or "" for e in (data or {}).get("errors") or []]
+        if not errors:
+            # Accepted without arguments: AH must know which offer by itself; refuse to guess.
+            raise AppieError("activation: AH accepted the mutation without an offer, not sending it again")
+        args = required_arguments(errors)
+        values = activation_values(args, offer) if args else None
+        if values is None:
+            raise AppieError(f"activation: unknown arguments {args or errors[0]}")
+        decl = ", ".join(f"${name}: {kind}" for name, kind in args)
+        call = ", ".join(f"{name}: ${name}" for name, _ in args)
+        query = (
+            f"mutation ActivatePersonalPromotion({decl}) {{ "
+            f"bonusActivatePersonalPromotion({call}) {{ __typename status message }} }}"
+        )
+        result = await self._graphql(query, values)
+        return ((result.get("data") or {}).get("bonusActivatePersonalPromotion")) or {}
 
     async def get_bonus_box(self, period_start: str, period_end: str) -> dict:
         """Personal Bonus Box offers: GraphQL FetchBonusBoxOffers. (inferred)

@@ -338,7 +338,7 @@ class ListCostCoordinator(_ListDrivenCoordinator[ListCost]):
 
     def __init__(self, hass, entry, client, shopping_list: ListCoordinator) -> None:
         super().__init__(
-            hass, entry, client, shopping_list, "lijst kosten", LIST_COST_INTERVAL, LIST_COST_COOLDOWN, False
+            hass, entry, client, shopping_list, "lijst kosten", LIST_COST_INTERVAL, LIST_COST_COOLDOWN, True
         )
 
     async def _fetch_for(self, items: list[ListItem]) -> ListCost:
