@@ -546,6 +546,24 @@ SAVINGS_SENSORS = (
         },
     ),
     SavingsDescription(
+        key="premium_bespaard",
+        name="Premium bespaard",
+        icon="mdi:crown-circle",
+        part="premium",
+        unit="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        # What Premium saved you since you have it, as AH counts it.
+        value=lambda p: p.get("totaal_bespaard"),
+        attributes=lambda p: {
+            "lid_sinds": p.get("lid_sinds"),
+            "bespaard_bonus_box": p.get("bespaard_bonus_box"),
+            "bespaard_bio": p.get("bespaard_bio"),
+            "extra_koopzegels": p.get("extra_koopzegels"),
+            "extra_air_miles": p.get("extra_air_miles"),
+            "bijgewerkt": p.get("bijgewerkt"),
+        },
+    ),
+    SavingsDescription(
         key="cadeaukaarten",
         name="Cadeaukaarten",
         icon="mdi:wallet-giftcard",
