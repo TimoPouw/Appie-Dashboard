@@ -13,6 +13,9 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 - **Kassabonnen**: je laatste kassabon met artikelen en korting, wat je deze maand bij AH hebt uitgegeven, en elke recente bon openen (ook als PDF).
 - **Vaak gekocht**: knoppen met wat je het vaakst koopt (standaard 10, geteld over de kassabonnen van de afgelopen 4 maanden; beide in te stellen). Eén tik zet het product op je lijst; staat het er al, dan komt er één bij.
 - **Je winkel**: open of dicht, openingstijden, en de koopjes van vandaag. Staat er iets uit Vaak gekocht tussen, dan krijg je een event.
+- **Bonus Box, spotlight en bonus per categorie**: je persoonlijke Bonus Box, de uitgelichte bonus van de week, en alle bonus in een categorie.
+- **Favoriete lijsten**: je lijstjes uit de app bekijken, er iets op zetten, of een heel lijstje op je boodschappenlijst zetten.
+- **Producten opzoeken**: details en voedingswaarden van een product.
 - **Zoeken en toevoegen op naam**: `appie.add_product` voor Assist, bijvoorbeeld "zet halfvolle melk op de lijst".
 
 > **Met dank aan [Willem de Groot](https://github.com/gwillem) en [appie-go](https://github.com/gwillem/appie-go).** Zonder zijn uitzoekwerk aan de AH-app had deze integratie niet bestaan. Zie [Dankjewel](#dankjewel) onderaan.
@@ -33,6 +36,9 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `sensor.albert_heijn_gekozen_kassabon` | De gekozen bon (€). Attributen `receipt_id`, `datetime`, `items`, `discounts`, `discount_total`, `payments`, `pdf_url`. |
 | `sensor.albert_heijn_vaak_gekocht` | Aantal producten in Vaak gekocht. Attribuut `producten`: de hele ranglijst met `rank`, `title`, `times_bought`, `product_id`, `bonus`, `on_list`, `quantity_on_list`, `entity_picture`. |
 | `button.albert_heijn_vaak_gekocht_1` … `_N` | Je vaakst gekochte producten, op volgorde. Naam en plaatje volgen het product; attributen `rank`, `title`, `times_bought`, `product_id`, `bonus`, `on_list`, `quantity_on_list`. Indrukken = op de lijst zetten. Producten die AH niet online verkoopt (losse bananen) gaan er als vrije tekst op. |
+| `sensor.albert_heijn_bonus_spotlight` | Aantal uitgelichte bonusaanbiedingen van de week. Attribuut `offers`: dezelfde velden als bij Bonus voor ons (`source` is `spotlight`), `on_list` volgt je lijst. |
+| `sensor.albert_heijn_bonus_box` | Aantal aanbiedingen in je persoonlijke Bonus Box. Attributen `max_activaties`, `geactiveerd`, `aanbiedingen` (`id`, `title`, `category`, `mechanism`, `price`, `price_was`, `image`, `activated`, `start_date`, `end_date`). |
+| `sensor.albert_heijn_favoriete_lijsten` | Aantal favoriete lijsten. Attribuut `lijsten`: `id`, `naam`, `aantal`, `image`. |
 | `binary_sensor.albert_heijn_winkel_open` | Is je vaste winkel nu open? |
 | `sensor.albert_heijn_winkel` | Sluitingstijd van vandaag ("22:00") of `gesloten`. Attributen `store_id`, `adres`, `openingstijden` (de komende dagen: `datum`, `dag`, `open`, `dicht`), `services`. |
 | `sensor.albert_heijn_koopjes` | Aantal koopjes (laatste-kans-afprijzingen) in je winkel. Attribuut `items`: `product_id`, `title`, `size`, `category`, `markdown_type`, `expires`, `is_favoriet`, `price`, `price_was`, `percentage`. |
@@ -53,6 +59,8 @@ Kies een bon in `select.albert_heijn_kassabon`; de integratie haalt hem op en ze
 | Lijst kosten | als de producten of aantallen op je lijst veranderen (één keer per reeks wijzigingen, een minuut na de eerste), en elke 6 uur |
 | Vergeet niet | als de producten op je lijst veranderen, maximaal eens per 15 minuten, en elke 6 uur |
 | Bonus | elke 6 uur en bij een nieuwe bonusweek; `on_list` rekent zonder extra vraag mee met je lijst |
+| Bonus spotlight, Bonus Box | elke 6 uur |
+| Favoriete lijsten | elke 30 minuten |
 | Kassabonnen | elk uur |
 | Vaak gekocht | elke 12 uur (elke bon maar één keer) |
 | Winkel | elke 12 uur; open of dicht wordt elke minuut lokaal uitgerekend |
@@ -138,6 +146,110 @@ intent_script:
         response_variable: gekozen
     speech:
       text: "{{ gekozen.title }} staat op de lijst."
+```
+
+**`appie.get_product`**: één product met details en voedingswaarden.
+
+```yaml
+action: appie.get_product
+data:
+  product_id: 436752
+response_variable: product
+```
+
+```yaml
+product_id: 436752
+title: AH Biologisch Rundergehakt
+size: 300 g
+price: 5.66
+image: https://static.ah.nl/...
+is_bonus: true
+bonus_mechanism: 10% KORTING
+brand: AH Biologisch
+category: Vlees
+subcategory: Rundergehakt
+nutriscore: D
+orderable: true
+previously_bought: true
+properties: [biologisch]
+description: Biologisch rundergehakt
+nutrition:
+  - name: Energie
+    value: 1011 kJ (243 kcal)
+```
+
+**`appie.get_products`**: meerdere producten tegelijk (`product_ids: [441199, 111]`). Antwoord: `producten` met dezelfde velden als `appie.search`, in de volgorde die je vroeg.
+
+**`appie.get_subcategories`**: de subcategorieën van een productcategorie (`categorie_id: 6401`). Hoe AH dat antwoord vormgeeft staat niet in appie-go, dus je krijgt het letterlijk terug onder `antwoord`.
+
+**`appie.bonus`**: zonder `categorie` de bonuscategorieën van deze week, met een categorie alle aanbiedingen daarin.
+
+```yaml
+action: appie.bonus
+data:
+  categorie: Zuivel, eieren
+response_variable: bonus
+```
+
+```yaml
+categorie: Zuivel, eieren
+aanbiedingen:
+  - key: product:111
+    title: AH Roomboter
+    mechanism: 2e halve prijs
+    source: categorie
+    price: 2.47
+    price_was: 3.29
+    image: null
+    end_date: "2026-10-11"
+    activated: null
+    on_list: false
+```
+
+**`appie.get_favorite_list`**: de producten op een favoriete lijst (`lijst`: naam of id).
+
+```yaml
+lijst: Weekboodschappen
+id: 305e6a50-...
+producten:
+  - product_id: 111
+    title: AH Roomboter
+    size: 250 g
+    price: 3.29
+    image: null
+    is_bonus: false
+    bonus_mechanism: null
+    quantity: 1
+```
+
+**`appie.add_to_favorite_list`**: zet een product op een favoriete lijst, met `zoekterm` (wat je vaak koopt gaat voor) of `product_id`, en optioneel `aantal`.
+
+```yaml
+action: appie.add_to_favorite_list
+data:
+  lijst: Feestje
+  zoekterm: chips
+```
+
+Antwoord: het gekozen product (zoals bij `appie.add_product`), plus `lijst` en `quantity`.
+
+**`appie.favorite_list_to_list`**: zet een hele favoriete lijst op je boodschappenlijst. Wat er al op staat wordt alleen aangevuld, nooit verlaagd.
+
+```yaml
+action: appie.favorite_list_to_list
+data:
+  lijst: Weekboodschappen
+```
+
+```yaml
+lijst: Weekboodschappen
+toegevoegd:
+  - product_id: 222
+    title: AH Courgette
+    quantity: 3
+al_op_lijst:
+  - product_id: 111
+    title: AH Roomboter
 ```
 
 **`appie.get_receipt`**: een recente kassabon ophalen. Zonder `receipt_id` krijg je de laatste.
@@ -227,7 +339,10 @@ Deze integratie staat op de schouders van **[appie-go](https://github.com/gwille
 | Kassabon als PDF | `receipts.go` |
 | Lijst kosten, Vergeet niet, favoriete winkel | de API-documentatie (`FetchTotalPrice`, `dontforgetlane`, `GetFavoriteStore`) |
 | Koopjes | `koopjes.go` |
-| Producten zoeken | `products.go` en `doc/search-api.md` |
+| Producten zoeken en opzoeken, voedingswaarden | `products.go` en `doc/search-api.md` |
+| Bonus spotlight en per categorie | `bonus.go` |
+| Bonus Box | de API-documentatie (`FetchBonusBoxOffers`) |
+| Favoriete lijsten | `shoppinglist.go` |
 
 Ook dank aan [@beninhos](https://github.com/gwillem/appie-go/issues/26) voor het uitzoeken van de inlogbeveiliging van AH, en aan [KixAss/home-assistant-appie](https://github.com/KixAss/home-assistant-appie), dat liet zien hoe de v2-boodschappenlijst zich gedraagt.
 

@@ -12,6 +12,9 @@ Fork van [eejeha/Appie-Dashboard](https://github.com/eejeha/Appie-Dashboard). Al
 - `sensor.albert_heijn_koopjes` en het event `appie_koopje_favoriet`.
 - `select.albert_heijn_kassabon` en `sensor.albert_heijn_gekozen_kassabon`: elke recente kassabon bekijken, plus een PDF-link per bon. De service `appie.get_receipt`.
 - `sensor.albert_heijn_vaak_gekocht` met de hele ranglijst.
+- `sensor.albert_heijn_bonus_spotlight`, `sensor.albert_heijn_bonus_box` en de service `appie.bonus` (bonus per categorie).
+- `sensor.albert_heijn_favoriete_lijsten` en de services `appie.get_favorite_list`, `appie.add_to_favorite_list` en `appie.favorite_list_to_list`.
+- Services `appie.get_product` (met voedingswaarden), `appie.get_products` en `appie.get_subcategories`.
 - Services `appie.search` en `appie.add_product` (handig met Assist).
 - Opties: aantal Vaak gekocht-knoppen (10 tot 50) en de periode waarover geteld wordt (30 tot 365 dagen). Werkt zonder herstart.
 - `recent` op de laatste kassabon heeft per bon ook `id` en `pdf_url`.
