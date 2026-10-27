@@ -493,3 +493,115 @@ views:
               {% else %}
               Geen koopjes op dit moment.
               {% endif %}
+  - title: Sparen
+    path: sparen
+    icon: mdi:piggy-bank-outline
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Koopzegels
+            heading_style: title
+            icon: mdi:ticket-percent
+          - type: tile
+            entity: sensor.albert_heijn_koopzegels_waarde
+            name: Waard bij inleveren
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_koopzegels
+            name: Zegels
+            grid_options:
+              columns: 6
+          - type: markdown
+            content: |
+              {% set z = 'sensor.albert_heijn_koopzegels' %}
+              {% if states(z) in ['unavailable', 'unknown'] %}
+              Je koopzegels zijn nog niet bekend.
+              {% else %}
+              {% set t = state_attr(z, 'zegels_per_boekje') | int(0) %}
+              {% set n = state_attr(z, 'in_huidig_boekje') | int(0) %}
+              **Huidig boekje:** {{ n }} van {{ t }} zegels{% if t %} ({{ (n * 100 / t) | round(0) | int }}%){% endif %}
+
+              <table>
+              <tr><td>Volle boekjes</td><td>{{ state_attr(z, 'volle_boekjes') }}</td></tr>
+              <tr><td>Ingelegd</td><td>€ {{ '%.2f' | format(state_attr(z, 'ingelegd') or 0) }}</td></tr>
+              <tr><td>Rente</td><td>€ {{ '%.2f' | format(state_attr(z, 'rente') or 0) }}</td></tr>
+              <tr><td>Per zegel</td><td>€ {{ '%.2f' | format(state_attr(z, 'prijs_per_zegel') or 0) }}</td></tr>
+              </table>
+              {% endif %}
+      - type: grid
+        cards:
+          - type: heading
+            heading: Tegoeden en Premium
+            heading_style: title
+            icon: mdi:wallet-outline
+          - type: tile
+            entity: sensor.albert_heijn_air_miles
+            name: Air Miles
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_premium
+            name: AH Premium
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_cadeaukaarten
+            name: Cadeaukaarten
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_openstaand_tegoed
+            name: Openstaand tegoed
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_premium_besparing
+            name: "Premium: besparing per jaar (schatting)"
+          - type: heading
+            heading: Uitdagingen
+            heading_style: subtitle
+            icon: mdi:flag-checkered
+          - type: markdown
+            content: |
+              {% for u in state_attr('sensor.albert_heijn_uitdagingen', 'uitdagingen') or [] %}
+              **{{ u.naam }}**{% if u.afgelopen %} (afgelopen){% endif %}
+
+              <table>
+              {% for s in u.stappen %}
+              <tr><td>{{ s.label }}</td><td>{% if s.status == 'COMPLETED' %}✓ gehaald{% elif s.status == 'FAILED' %}niet gehaald{% else %}{{ s.voortgang_tekst or s.voortgang }} van {{ s.doel_tekst or s.doel }}{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+              {% else %}
+              Je doet nu niet mee aan een uitdaging.
+              {% endfor %}
+      - type: grid
+        cards:
+          - type: heading
+            heading: Spaaracties
+            heading_style: title
+            icon: mdi:star-shooting-outline
+          - type: markdown
+            content: |
+              <table>
+              {% for a in state_attr('sensor.albert_heijn_spaaracties', 'acties') or [] %}
+              <tr><td><b>{{ a.naam }}</b><br>{{ a.omschrijving or '' }}</td>
+              <td>{{ a.punten or 0 }}{% if a.per_kaart %} / {{ a.per_kaart }}{% endif %}</td></tr>
+              {% else %}
+              <tr><td>Er lopen nu geen spaaracties.</td></tr>
+              {% endfor %}
+              </table>
+          - type: heading
+            heading: Gemiste bonus
+            heading_style: subtitle
+            icon: mdi:sale-outline
+          - type: markdown
+            content: |
+              {% for p in state_attr('sensor.albert_heijn_gemiste_bonus', 'producten') or [] %}
+              - **{{ p.title }}**: {{ p.bonus }} ({{ p.times_bought }}× gekocht)
+              {% else %}
+              Alles wat je vaak koopt en nu in de bonus is, staat al op je lijst.
+              {% endfor %}

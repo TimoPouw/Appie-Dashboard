@@ -933,3 +933,215 @@ def best_match(results: list[SearchResult], favorites: list[Favorite]) -> tuple[
     if previous:
         return previous, MATCH_PREVIOUS
     return results[0], MATCH_SEARCH
+
+
+# --- savings: koopzegels, Air Miles, spaaracties, Premium, tegoeden -----------------
+
+
+def _amount(value: Any) -> float | None:
+    """Money ({amount}) or PaymentAmount ({amount: {amount}}) as euros."""
+    while isinstance(value, dict):
+        value = value.get("amount")
+    return _money(value)
+
+
+def _int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _day(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def parse_purchase_stamps(raw: dict | None) -> dict[str, Any] | None:
+    """purchaseStampBalance: koopzegels as zegels, boekjes and euros."""
+    if not raw:
+        return None
+    points = raw.get("points") or {}
+    money = raw.get("money") or {}
+    constants = raw.get("constants") or {}
+    full = constants.get("fullBookletTarget") or {}
+    partial = constants.get("partialBookletTarget") or {}
+    return {
+        "zegels": _int(points.get("totalPoints")),
+        "volle_boekjes": _int(points.get("fullBooklets")),
+        "in_huidig_boekje": _int(points.get("currentBookletPoints")),
+        "zegels_per_boekje": _int(full.get("points")),
+        "zegels_half_boekje": _int(partial.get("points")),
+        "prijs_per_zegel": _amount(constants.get("price")),
+        "rente_vol_boekje": _amount(full.get("interest")),
+        "ingelegd": _amount(money.get("invested")),
+        "rente": _amount(money.get("interest")),
+        "uitbetaling": _amount(money.get("payout")),
+    }
+
+
+def parse_miles(raw: dict | None) -> dict[str, Any] | None:
+    """milesBalance: the Air Miles balance, or why AH can't show it."""
+    if not raw:
+        return None
+    return {"saldo": _int(raw.get("balance")), "fout": raw.get("errorState")}
+
+
+def _period(raw: dict | None) -> tuple[date | None, date | None]:
+    raw = raw or {}
+    return _day(raw.get("start")), _day(raw.get("end"))
+
+
+def current_programs(raw: list[dict] | None, today: date) -> list[dict]:
+    # Sorted by points later (add_program_balances): the ones you save for first.
+    """loyaltyPrograms you can still save for or redeem; AH also lists old ones."""
+    found = []
+    for program in raw or []:
+        if not isinstance(program, dict) or program.get("id") is None:
+            continue
+        save_start, save_end = _period(program.get("savingPeriod"))
+        _, redeem_end = _period(program.get("redeemPeriod"))
+        last = max((d for d in (save_end, redeem_end) if d), default=None)
+        if (last and last < today) or (save_start and save_start > today):
+            continue
+        content = program.get("content") or {}
+        found.append(
+            {
+                "id": program["id"],
+                "naam": content.get("title") or program.get("name"),
+                "omschrijving": content.get("subtitle"),
+                "type": program.get("type"),
+                "status": program.get("status"),
+                "sparen_tot": save_end.isoformat() if save_end else None,
+                "inleveren_tot": redeem_end.isoformat() if redeem_end else None,
+                "per_kaart": _int((content.get("stamps") or {}).get("stampsPerCard")),
+                "punten": None,
+            }
+        )
+    return found
+
+
+def add_program_balances(programs: list[dict], raw: list[dict] | None) -> list[dict]:
+    """Fill "punten" from loyaltyPointsBalances."""
+    balances = {b.get("programId"): _int(b.get("balance")) for b in raw or [] if isinstance(b, dict)}
+    filled = [{**p, "punten": balances.get(p["id"], p["punten"])} for p in programs]
+    return sorted(filled, key=lambda p: -(p["punten"] or 0))
+
+
+def parse_challenges(raw: list[dict] | None, today: date) -> list[dict]:
+    """loyaltyChallenges with the progress of each step.
+
+    progress and maxProgress can be cents (a spending challenge); AH's own
+    formatted texts are kept next to them for display.
+    """
+    found = []
+    for challenge in raw or []:
+        if not isinstance(challenge, dict):
+            continue
+        info = challenge.get("info") or {}
+        reward = challenge.get("reward") or {}
+        _, reward_end = _period(reward.get("duration"))
+        steps = []
+        ends = [reward_end]
+        for step in challenge.get("steps") or []:
+            start, end = _period(step.get("duration"))
+            ends.append(end)
+            details = step.get("progressDetails") or {}
+            steps.append(
+                {
+                    "label": step.get("label"),
+                    "omschrijving": step.get("subtitle"),
+                    "status": step.get("status"),
+                    "voortgang": _int(step.get("progress")),
+                    "doel": _int(step.get("maxProgress")),
+                    "van": start.isoformat() if start else None,
+                    "tot": end.isoformat() if end else None,
+                    "voortgang_tekst": details.get("progress"),
+                    "nog_te_gaan": details.get("remainingProgress"),
+                    "doel_tekst": details.get("total"),
+                }
+            )
+        last = max((d for d in ends if d), default=None)
+        found.append(
+            {
+                "id": challenge.get("id"),
+                "naam": info.get("title") or challenge.get("name"),
+                "omschrijving": info.get("description"),
+                "status": challenge.get("status"),
+                "melding": challenge.get("statusMessage"),
+                "beloning": reward.get("label"),
+                "beloning_uitleg": reward.get("subtitle"),
+                "beloning_tot": reward_end.isoformat() if reward_end else None,
+                "afgelopen": bool(last and last < today),
+                "stappen": steps,
+            }
+        )
+    return found
+
+
+def parse_premium(raw: dict | None) -> dict[str, Any] | None:
+    """subscriptionCurrent plus AH's estimate of what Premium saves you.
+
+    The estimate is there without a subscription too: then it is what
+    Premium would have saved, based on your purchases.
+    """
+    if not raw:
+        return None
+    current = raw.get("subscriptionCurrent") or {}
+    estimate = raw.get("subscriptionEstimatedPremiumSavings") or {}
+    potential = raw.get("subscriptionSavingPotential") or {}
+    if not (current or estimate or potential):
+        return None
+    extension = current.get("extension") or {}
+    return {
+        "actief": bool(current.get("isActive")),
+        "omschrijving": current.get("description"),
+        "start": current.get("startDate"),
+        "eind": current.get("endDate"),
+        "proefperiode": current.get("isTrialSubscription"),
+        "prijs": _amount(current.get("sellPrice")),
+        "verlenging": extension.get("date"),
+        "prijs_verlenging": _amount(extension.get("sellPrice")),
+        "actieve_dagen": _int(estimate.get("subscriptionActiveDays")),
+        "besparing_per_jaar": _money(estimate.get("estimatedYearlySavedAmount")),
+        "zegels_per_jaar": _int(estimate.get("estimatedYearlySavedStampsAmount")),
+        "besparing_rest_periode": _money(estimate.get("estimatedRemainingDaysSavedAmount")),
+        "besparing_per_dag": _money(estimate.get("averageDailySavedAmount")),
+        "mogelijke_besparing": _money(potential.get("premiumSavingPotential")),
+    }
+
+
+def parse_gift_cards(raw: list[dict] | None) -> list[dict]:
+    """paymentsGetGiftCards; only the last four digits of a card number are kept."""
+    cards = []
+    for card in raw or []:
+        if not isinstance(card, dict):
+            continue
+        number = str(card.get("cardNumber") or "")
+        cards.append(
+            {
+                "kaart": f"•••• {number[-4:]}" if number else None,
+                "saldo": _amount(card.get("balance")),
+                "status": card.get("status"),
+                "sinds": card.get("createdDate"),
+            }
+        )
+    return cards
+
+
+def parse_settlements(raw: dict | None) -> dict[str, Any] | None:
+    """settlementsTotal: credit AH still owes you (refunds, returned deposit)."""
+    if not raw:
+        return None
+    return {"totaal": _amount(raw.get("totalAmount")) or 0.0, "aantal": len(raw.get("settlements") or [])}
+
+
+def missed_bonus(favorites: list[Favorite], list_items: list[ListItem]) -> list[dict[str, Any]]:
+    """Favorites that are in the bonus now but not on the list."""
+    return [
+        {**attrs, "entity_picture": f.image}
+        for f in favorites
+        if f.is_bonus and not (attrs := favorite_attributes(f, list_items))["on_list"]
+    ]

@@ -33,6 +33,13 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieCo
         "spotlight": len(data.spotlight.data or []),
         "bonus_box": asdict(data.bonus_box.data) if data.bonus_box.data else None,
         "favorite_lists": [asdict(fl) for fl in data.favorite_lists.data or []],
+        # Card numbers are already cut to four digits; leave even those out here.
+        "savings": {
+            **asdict(data.savings.data),
+            "gift_cards": len(data.savings.data.gift_cards) if data.savings.data.gift_cards is not None else None,
+        }
+        if data.savings.data
+        else None,
         "receipts": {
             "count": len(receipts.receipts),
             "month_total": receipts.month_total,
