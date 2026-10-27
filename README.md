@@ -21,6 +21,8 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 > **Met dank aan [Willem de Groot](https://github.com/gwillem) en [appie-go](https://github.com/gwillem/appie-go).** Zonder zijn uitzoekwerk aan de AH-app had deze integratie niet bestaan. Zie [Dankjewel](#dankjewel) onderaan.
 
 > Dit gebruikt de onofficiële, reverse-engineered API van de AH-app. Niet gelieerd aan Albert Heijn. AH kan de API of de inlogstap op elk moment veranderen.
+>
+> Het AH-logo is een merk van Albert Heijn en staat er alleen in zodat je de integratie herkent in Home Assistant.
 
 ## Entiteiten
 
@@ -348,7 +350,7 @@ python3 -m venv .venv
 
 Bij elke push en pull request draaien hassfest, de HACS-controle en de tests (GitHub Actions). Een release maak je door een tag te pushen die gelijk is aan de versie in `manifest.json`, bijvoorbeeld `v0.3.0-beta.1`; de release-notes komen uit `CHANGELOG.md`, en een tag met `-` wordt een pre-release.
 
-Logo en icoon: zet de officiële bestanden in de goede maten met
+Logo en icoon: de bron is [`assets/Albert_Heijn_Logo.svg`](assets/Albert_Heijn_Logo.svg). Exporteer een SVG eerst naar een PNG van minstens 512 px, en zet die dan in de goede maten met
 
 ```bash
 .venv/bin/pip install pillow
