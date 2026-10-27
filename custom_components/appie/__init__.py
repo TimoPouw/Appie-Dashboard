@@ -117,7 +117,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.
     entry.async_create_background_task(hass, favorites.async_refresh(), f"{entry.entry_id} favorites")
+    entry.async_create_background_task(hass, _probe(client), "appie probe")
     return True
+
+
+async def _probe(client: AppieClient) -> None:
+    """TEMPORARY: log GraphQL validation errors (schema info only, no data)."""
+    import logging
+
+    log = logging.getLogger(__name__)
+    fields = (
+        "purchaseStampBalance paymentsGetFullBookletsCount milesBalance loyaltyPointsBalances loyaltyPrograms "
+        "loyaltyChallenges paymentsGetGiftCards settlementsTotal recommendationsMissingBonus "
+        "subscriptionCurrent subscriptionSummary subscriptionCalculateSavings subscriptionSavingsCarousel "
+        "subscriptionEstimatedPremiumSavings subscriptionSavingPotential evalueAccountBalance"
+    ).split()
+    for name in fields:
+        try:
+            data = await client._request(
+                "POST", "/graphql", {"query": f"query Probe {{ {name} {{ __typename }} }}", "variables": {}},
+                graphql_errors=True,
+            )
+            errors = [e.get("message") for e in (data or {}).get("errors") or []]
+            typename = ((data or {}).get("data") or {}).get(name)
+            if isinstance(typename, list):
+                typename = [i.get("__typename") for i in typename[:3] if isinstance(i, dict)] + [len(typename)]
+            elif isinstance(typename, dict):
+                typename = typename.get("__typename")
+            log.warning("appie probe %s: errors=%s type=%s", name, errors, typename)
+        except Exception as err:  # noqa: BLE001
+            log.warning("appie probe %s: %s", name, str(err)[:300])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> bool:
