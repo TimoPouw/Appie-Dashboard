@@ -94,7 +94,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     entry.async_on_unload(favorites.async_add_listener(bargains.favorites_changed))
     entry.async_on_unload(receipts.async_add_listener(receipt_viewer.receipts_changed))
     entry.runtime_data = AppieData(
-        client, shopping_list, bonus, receipts, favorites, list_cost, dont_forget, store, bargains, recipes, receipt_viewer
+        client=client,
+        shopping_list=shopping_list,
+        bonus=bonus,
+        receipts=receipts,
+        favorites=favorites,
+        list_cost=list_cost,
+        dont_forget=dont_forget,
+        store=store,
+        bargains=bargains,
+        recipes=recipes,
+        receipt_viewer=receipt_viewer,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.

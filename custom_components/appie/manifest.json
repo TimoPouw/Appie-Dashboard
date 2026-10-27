@@ -1,13 +1,17 @@
 {
   "domain": "appie",
   "name": "Albert Heijn",
-  "codeowners": ["@eejeha"],
+  "codeowners": [
+    "@TimoPouw"
+  ],
   "config_flow": true,
-  "dependencies": ["http"],
-  "documentation": "https://github.com/eejeha/Appie-Dashboard",
+  "dependencies": [
+    "http"
+  ],
+  "documentation": "https://github.com/TimoPouw/Appie-Dashboard",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/eejeha/Appie-Dashboard/issues",
+  "issue_tracker": "https://github.com/TimoPouw/Appie-Dashboard/issues",
   "requirements": [],
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
