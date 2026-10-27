@@ -84,18 +84,22 @@ async def test_bonus_endpoints(hass: HomeAssistant, aioclient_mock) -> None:
     assert "bonusPersonalPromotionBundles" in box[2]["query"]
 
 
-PROBE_ERROR = {"errors": [{"message": "Validation error (MissingFieldArgument@[bonusActivatePersonalPromotion]) : "
-                                      "Field 'bonusActivatePersonalPromotion' argument 'id' of type 'String!' is "
-                                      "required, but it was not provided."}]}
+# As AH answers the probe (HTTP 400), seen on a live account.
+PROBE_ERROR = {"errors": [{"message": 'Field "bonusActivatePersonalPromotion" argument "externalId" of type "Int!" '
+                                      'is required, but it was not provided.',
+                           "locations": [{"line": 1, "column": 38}],
+                           "extensions": {"code": "GRAPHQL_VALIDATION_FAILED"}}]}
 
 
 def test_required_arguments_and_values() -> None:
     from custom_components.appie.models import activation_values, required_arguments
 
     args = required_arguments([PROBE_ERROR["errors"][0]["message"]])
-    assert args == [("id", "String!")]
+    assert args == [("externalId", "Int!")]
     offer = {"id": "385569", "hq_id": 894019, "start_date": "2026-02-09", "end_date": "2026-02-15"}
-    assert activation_values(args, offer) == {"id": "385569"}
+    assert activation_values(args, offer) == {"externalId": 894019}
+    assert activation_values(required_arguments(["argument 'id' of type 'String!' is required"]), offer) == {
+        "id": "385569"}
     assert activation_values([("hqId", "Int!"), ("periodStart", "String")], offer) == {
         "hqId": 894019, "periodStart": "2026-02-09"}
     # An argument we can't place: nothing is sent.
@@ -109,8 +113,9 @@ async def test_activation_probes_then_activates(hass: HomeAssistant, aioclient_m
         calls.append(data)
         from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMockResponse
 
-        body = PROBE_ERROR if len(calls) == 1 else {
-            "data": {"bonusActivatePersonalPromotion": {"status": "SUCCESS", "message": None}}}
+        if len(calls) == 1:
+            return AiohttpClientMockResponse(method, url, json=PROBE_ERROR, status=400)
+        body = {"data": {"bonusActivatePersonalPromotion": {"status": "SUCCESS", "message": None}}}
         return AiohttpClientMockResponse(method, url, json=body)
 
     aioclient_mock.post(f"{API_BASE}/graphql", side_effect=graphql)
@@ -119,7 +124,7 @@ async def test_activation_probes_then_activates(hass: HomeAssistant, aioclient_m
     assert result == {"status": "SUCCESS", "message": None}
     # First the probe without arguments, then the real call with the discovered one.
     assert "bonusActivatePersonalPromotion {" in calls[0]["query"] and calls[0]["variables"] == {}
-    assert "($id: String!)" in calls[1]["query"] and calls[1]["variables"] == {"id": "385569"}
+    assert "($externalId: Int!)" in calls[1]["query"] and calls[1]["variables"] == {"externalId": 894019}
 
 
 async def test_activation_refuses_unknown_arguments(hass: HomeAssistant, aioclient_mock) -> None:

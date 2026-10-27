@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import logging
 import re
 import time
@@ -310,7 +311,8 @@ class AppieClient:
                 _LOGGER.debug("access token refreshed")
             return self._tokens["access_token"]
 
-    async def _request(self, method: str, path: str, body: Any = None) -> Any:
+    async def _request(self, method: str, path: str, body: Any = None, *, graphql_errors: bool = False) -> Any:
+        """Call the API; graphql_errors returns a 400 with a GraphQL error body instead of raising."""
         token = await self._ensure_token()
         for attempt in (1, 2):
             try:
@@ -324,6 +326,14 @@ class AppieClient:
                         raise AppieAuthError(f"{method} {path}: {resp.status}")
                     if resp.status >= 400:
                         text = await resp.text()
+                        if graphql_errors and resp.status == 400:
+                            # Validation errors come as HTTP 400 with {"errors": [...]}.
+                            try:
+                                data = json.loads(text)
+                            except ValueError:
+                                data = None
+                            if isinstance(data, dict) and data.get("errors"):
+                                return data
                         raise AppieError(f"{method} {path}: HTTP {resp.status} {text[:200]}")
                     text = await resp.text()
                     data = await resp.json(content_type=None) if text else None
@@ -429,7 +439,7 @@ class AppieClient:
         real. An argument we can't map stops it with an AppieError.
         """
         probe = "mutation ActivatePersonalPromotion { bonusActivatePersonalPromotion { __typename status message } }"
-        data = await self._request("POST", "/graphql", {"query": probe, "variables": {}})
+        data = await self._request("POST", "/graphql", {"query": probe, "variables": {}}, graphql_errors=True)
         errors = [e.get("message") or "" for e in (data or {}).get("errors") or []]
         if not errors:
             # Accepted without arguments: AH must know which offer by itself; refuse to guess.
