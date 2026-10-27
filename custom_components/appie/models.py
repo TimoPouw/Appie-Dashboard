@@ -341,6 +341,51 @@ def parse_bargains(raw: dict) -> list[Bargain]:
     return bargains
 
 
+# --- favorite lists -------------------------------------------------------------
+
+
+@dataclass
+class FavoriteList:
+    """A favorite list ("lijstje") from lists/v3."""
+
+    id: str
+    naam: str
+    aantal: int
+    image: str | None = None
+
+
+def parse_favorite_lists(raw: list | None) -> list[FavoriteList]:
+    lists = []
+    for row in raw or []:
+        if not row.get("id"):
+            continue
+        images = [img for group in row.get("productImages") or [] for img in group or []]
+        lists.append(
+            FavoriteList(
+                id=row["id"],
+                naam=row.get("description") or "?",
+                aantal=int(row.get("itemCount") or 0),
+                image=pick_image(images, min_width=80),
+            )
+        )
+    return lists
+
+
+def find_favorite_list(lists: list[FavoriteList], wanted: str) -> FavoriteList | None:
+    """By id or by name, ignoring case."""
+    wanted = wanted.strip().lower()
+    return next((fl for fl in lists if fl.id.lower() == wanted or fl.naam.lower() == wanted), None)
+
+
+def parse_favorite_list_items(raw: dict) -> list[tuple[int, int]]:
+    """(product id, quantity) for each product on a favoriteListV2 response."""
+    found = (raw.get("data") or {}).get("favoriteListV2") or []
+    if isinstance(found, dict):
+        found = [found]
+    items = (found[0].get("items") or []) if found else []
+    return [(int(i["productId"]), max(int(i.get("quantity") or 1), 1)) for i in items if i.get("productId")]
+
+
 # --- bonus -------------------------------------------------------------------
 
 

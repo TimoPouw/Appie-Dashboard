@@ -54,6 +54,9 @@
     },
     "unknown_category": {
       "message": "Onbekende bonuscategorie \"{category}\". Kies uit: {categories}."
+    },
+    "unknown_list": {
+      "message": "Geen favoriete lijst \"{list}\". Je lijsten: {lists}."
     }
   },
   "services": {
@@ -132,6 +135,48 @@
         "categorie": {
           "name": "Categorie",
           "description": "Een categorienaam uit de lijst die je zonder categorie terugkrijgt."
+        }
+      }
+    },
+    "get_favorite_list": {
+      "name": "Favoriete lijst ophalen",
+      "description": "Geeft de producten op een van je favoriete lijsten terug.",
+      "fields": {
+        "lijst": {
+          "name": "Lijst",
+          "description": "Naam of id van de favoriete lijst."
+        }
+      }
+    },
+    "add_to_favorite_list": {
+      "name": "Op favoriete lijst zetten",
+      "description": "Zet een product op een van je favoriete lijsten, via een zoekterm of productnummer.",
+      "fields": {
+        "lijst": {
+          "name": "Lijst",
+          "description": "Naam of id van de favoriete lijst."
+        },
+        "zoekterm": {
+          "name": "Zoekterm",
+          "description": "Wat je wilt toevoegen; wat je vaak koopt gaat voor."
+        },
+        "product_id": {
+          "name": "Productnummer",
+          "description": "AH-productnummer, in plaats van een zoekterm."
+        },
+        "aantal": {
+          "name": "Aantal",
+          "description": "Hoeveel stuks (standaard 1)."
+        }
+      }
+    },
+    "favorite_list_to_list": {
+      "name": "Favoriete lijst naar boodschappenlijst",
+      "description": "Zet alle producten van een favoriete lijst op je boodschappenlijst. Wat er al op staat wordt alleen aangevuld.",
+      "fields": {
+        "lijst": {
+          "name": "Lijst",
+          "description": "Naam of id van de favoriete lijst."
         }
       }
     }

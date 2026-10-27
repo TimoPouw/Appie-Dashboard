@@ -19,6 +19,7 @@ from .coordinator import (
     BonusBoxCoordinator,
     BonusCoordinator,
     DontForgetCoordinator,
+    FavoriteListsCoordinator,
     FavoritesCoordinator,
     ListCoordinator,
     ListCostCoordinator,
@@ -77,6 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     receipt_viewer = ReceiptViewerCoordinator(hass, entry, client, receipts)
     spotlight = SpotlightCoordinator(hass, entry, client)
     bonus_box = BonusBoxCoordinator(hass, entry, client, bonus)
+    favorite_lists = FavoriteListsCoordinator(hass, entry, client)
 
     # Sequential on purpose: the first call may refresh the token.
     await shopping_list.async_config_entry_first_refresh()
@@ -91,6 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await receipt_viewer.async_refresh()
     await spotlight.async_refresh()
     await bonus_box.async_refresh()
+    await favorite_lists.async_refresh()
 
     for follower in (bonus, list_cost, dont_forget):
         entry.async_on_unload(shopping_list.async_add_listener(follower.list_changed))
@@ -109,6 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
         receipt_viewer=receipt_viewer,
         spotlight=spotlight,
         bonus_box=bonus_box,
+        favorite_lists=favorite_lists,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.

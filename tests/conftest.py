@@ -8,6 +8,8 @@ from .common import (
     BARGAINS,
     BONUS_BOX,
     DONT_FORGET,
+    FAVORITE_LIST_ITEMS,
+    FAVORITE_LISTS,
     META,
     NUTRITION,
     PRODUCT_DETAIL,
@@ -50,6 +52,9 @@ def api():
         "get_spotlight_bonus": AsyncMock(return_value=SPOTLIGHT),
         "get_bonus_category": AsyncMock(return_value=SPOTLIGHT),
         "get_bonus_box": AsyncMock(return_value=BONUS_BOX),
+        "get_favorite_lists": AsyncMock(return_value=FAVORITE_LISTS),
+        "get_favorite_list_items": AsyncMock(return_value=FAVORITE_LIST_ITEMS),
+        "add_to_favorite_list": AsyncMock(),
         "get_receipt_pdf": AsyncMock(return_value=b"%PDF-1.4 kassabon"),
     }
     patches = [patch(f"{client}.{name}", mock) for name, mock in mocks.items()]

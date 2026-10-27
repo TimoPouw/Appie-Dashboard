@@ -1,4 +1,4 @@
-"""Services: products, adding a product by name, receipts."""
+"""Services: products, bonus, favorite lists, adding by name, receipts."""
 
 from __future__ import annotations
 
@@ -17,7 +17,9 @@ from .models import (
     SOURCE_CATEGORY,
     bonus_categories,
     parse_bonus_section,
+    parse_favorite_list_items,
     best_match,
+    find_favorite_list,
     new_product_item,
     parse_product_detail,
     parse_receipt_detail,
@@ -32,6 +34,9 @@ SERVICE_GET_PRODUCT = "get_product"
 SERVICE_GET_PRODUCTS = "get_products"
 SERVICE_GET_SUBCATEGORIES = "get_subcategories"
 SERVICE_BONUS = "bonus"
+SERVICE_GET_FAVORITE_LIST = "get_favorite_list"
+SERVICE_ADD_TO_FAVORITE_LIST = "add_to_favorite_list"
+SERVICE_FAVORITE_LIST_TO_LIST = "favorite_list_to_list"
 
 ATTR_QUERY = "zoekterm"
 ATTR_COUNT = "aantal"
@@ -40,6 +45,7 @@ ATTR_PRODUCT_ID = "product_id"
 ATTR_PRODUCT_IDS = "product_ids"
 ATTR_CATEGORY_ID = "categorie_id"
 ATTR_CATEGORY = "categorie"
+ATTR_LIST = "lijst"
 
 # Enough results for add_product to find a product we often buy.
 ADD_PRODUCT_CANDIDATES = 20
@@ -65,6 +71,18 @@ PRODUCTS_SCHEMA = vol.Schema(
     }
 )
 SUBCATEGORIES_SCHEMA = vol.Schema({vol.Required(ATTR_CATEGORY_ID): vol.All(vol.Coerce(int), vol.Range(min=1))})
+FAVORITE_LIST_SCHEMA = vol.Schema({vol.Required(ATTR_LIST): vol.All(cv.string, vol.Length(min=1))})
+ADD_TO_FAVORITE_LIST_SCHEMA = vol.All(
+    vol.Schema(
+        {
+            vol.Required(ATTR_LIST): vol.All(cv.string, vol.Length(min=1)),
+            vol.Optional(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
+            vol.Optional(ATTR_PRODUCT_ID): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            vol.Optional(ATTR_COUNT, default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
+        }
+    ),
+    cv.has_at_least_one_key(ATTR_QUERY, ATTR_PRODUCT_ID),
+)
 BONUS_SCHEMA = vol.Schema({vol.Optional(ATTR_CATEGORY): cv.string})
 RECEIPT_SCHEMA = vol.Schema({vol.Optional(ATTR_RECEIPT_ID): cv.string})
 
@@ -156,6 +174,92 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(f"Albert Heijn: {err}") from err
         return {"antwoord": raw}
 
+    async def _favorite_list(name: str):
+        coordinator = _entry(hass).runtime_data.favorite_lists
+        found = find_favorite_list(coordinator.data or [], name)
+        if found is None:
+            # Maybe made in the app since the last poll.
+            await coordinator.async_refresh()
+            if not coordinator.last_update_success:
+                raise HomeAssistantError(f"Albert Heijn: {coordinator.last_exception}")
+            found = find_favorite_list(coordinator.data or [], name)
+        lists = coordinator.data or []
+        if found is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_list",
+                translation_placeholders={"list": name, "lists": ", ".join(fl.naam for fl in lists)},
+            )
+        return found
+
+    async def _list_products(list_id: str) -> list[tuple[int, int, dict | None]]:
+        """(product id, quantity, product card or None) for each product on a favorite list."""
+        client = _entry(hass).runtime_data.client
+        try:
+            items = parse_favorite_list_items(await client.get_favorite_list_items(list_id))
+            cards = await client.get_products([pid for pid, _ in items])
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        return [(pid, quantity, cards.get(pid)) for pid, quantity in items]
+
+    async def get_favorite_list(call: ServiceCall) -> ServiceResponse:
+        found = await _favorite_list(call.data[ATTR_LIST])
+        products = []
+        for pid, quantity, card in await _list_products(found.id):
+            product = parse_search([card])[0].as_dict() if card else {"product_id": pid, "title": None}
+            products.append({**product, "quantity": quantity})
+        return {"lijst": found.naam, "id": found.id, "producten": products}
+
+    async def add_to_favorite_list(call: ServiceCall) -> ServiceResponse:
+        data = _entry(hass).runtime_data
+        found = await _favorite_list(call.data[ATTR_LIST])
+        if ATTR_PRODUCT_ID in call.data:
+            product_id, chosen = call.data[ATTR_PRODUCT_ID], {"product_id": call.data[ATTR_PRODUCT_ID]}
+        else:
+            match = best_match(
+                await _search(hass, call.data[ATTR_QUERY], ADD_PRODUCT_CANDIDATES), data.favorites.data or []
+            )
+            if match is None:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="no_product",
+                    translation_placeholders={"query": call.data[ATTR_QUERY]},
+                )
+            product_id, chosen = match[0].product_id, {**match[0].as_dict(), "match": match[1]}
+        try:
+            await data.client.add_to_favorite_list(
+                found.id, [{"productId": product_id, "quantity": call.data[ATTR_COUNT]}]
+            )
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        await data.favorite_lists.async_refresh()
+        return {**chosen, "lijst": found.naam, "quantity": call.data[ATTR_COUNT]}
+
+    async def favorite_list_to_list(call: ServiceCall) -> ServiceResponse:
+        data = _entry(hass).runtime_data
+        found = await _favorite_list(call.data[ATTR_LIST])
+        current = {i.product_id: i for i in data.shopping_list.data or [] if i.product_id}
+        body, added, already = [], [], []
+        for pid, quantity, card in await _list_products(found.id):
+            title = (card or {}).get("title") or str(pid)
+            item = current.get(pid)
+            if item and not item.checked and item.quantity >= quantity:
+                already.append({"product_id": pid, "title": title})
+                continue
+            if item:
+                # Ticked off, or fewer than the favorite list has: bring it up, never lower.
+                body.append(item.patch(quantity=quantity, checked=False))
+            else:
+                body.append(new_product_item(pid, title).patch(quantity=quantity))
+            added.append({"product_id": pid, "title": title, "quantity": quantity})
+        if body:
+            try:
+                await data.client.patch_list(body)
+            except AppieError as err:
+                raise HomeAssistantError(f"Albert Heijn: {err}") from err
+            await data.shopping_list.async_refresh()
+        return {"lijst": found.naam, "toegevoegd": added, "al_op_lijst": already}
+
     async def bonus(call: ServiceCall) -> ServiceResponse:
         client = _entry(hass).runtime_data.client
         today = dt_util.now().date()
@@ -211,6 +315,27 @@ def async_setup_services(hass: HomeAssistant) -> None:
         get_subcategories,
         schema=SUBCATEGORIES_SCHEMA,
         supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_FAVORITE_LIST,
+        get_favorite_list,
+        schema=FAVORITE_LIST_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADD_TO_FAVORITE_LIST,
+        add_to_favorite_list,
+        schema=ADD_TO_FAVORITE_LIST_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_FAVORITE_LIST_TO_LIST,
+        favorite_list_to_list,
+        schema=FAVORITE_LIST_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN, SERVICE_BONUS, bonus, schema=BONUS_SCHEMA, supports_response=SupportsResponse.ONLY

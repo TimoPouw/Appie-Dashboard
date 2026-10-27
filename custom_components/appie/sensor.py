@@ -19,6 +19,7 @@ from .coordinator import (
     BonusBoxCoordinator,
     BonusCoordinator,
     DontForgetCoordinator,
+    FavoriteListsCoordinator,
     FavoritesCoordinator,
     ListCostCoordinator,
     ReceiptsCoordinator,
@@ -51,6 +52,7 @@ async def async_setup_entry(
             PickedReceiptSensor(entry, data.receipt_viewer),
             SpotlightSensor(entry, data.spotlight),
             BonusBoxSensor(entry, data.bonus_box),
+            FavoriteListsSensor(entry, data.favorite_lists),
         ]
     )
 
@@ -396,3 +398,21 @@ class BonusBoxSensor(_Base, SensorEntity):
         if box is None:
             return {}
         return {"max_activaties": box.max_activations, "geactiveerd": box.activated, "aanbiedingen": box.offers}
+
+
+class FavoriteListsSensor(_Base, SensorEntity):
+    """The favorite lists ("lijstjes") in the app."""
+
+    _attr_icon = "mdi:format-list-checks"
+    _attr_native_unit_of_measurement = "lijsten"
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: FavoriteListsCoordinator) -> None:
+        super().__init__(entry, coordinator, "favoriete_lijsten", "Favoriete lijsten")
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"lijsten": [asdict(fl) for fl in self.coordinator.data or []]}

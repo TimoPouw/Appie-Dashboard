@@ -32,6 +32,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieCo
         "bargains": [asdict(b) for b in data.bargains.data or []],
         "spotlight": len(data.spotlight.data or []),
         "bonus_box": asdict(data.bonus_box.data) if data.bonus_box.data else None,
+        "favorite_lists": [asdict(fl) for fl in data.favorite_lists.data or []],
         "receipts": {
             "count": len(receipts.receipts),
             "month_total": receipts.month_total,

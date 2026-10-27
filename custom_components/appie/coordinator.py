@@ -27,6 +27,7 @@ from .const import (
     EVENT_BARGAIN_FAVORITE,
     FAVORITES_COUNT,
     FAVORITES_DAYS,
+    FAVORITE_LISTS_INTERVAL,
     FAVORITES_INTERVAL,
     LIST_COST_COOLDOWN,
     LIST_COST_INTERVAL,
@@ -43,6 +44,7 @@ from .models import (
     BonusBox,
     BonusOffer,
     Favorite,
+    FavoriteList,
     ListCost,
     ListItem,
     Receipt,
@@ -60,6 +62,7 @@ from .models import (
     parse_bonus_box,
     parse_bonus_section,
     parse_dont_forget,
+    parse_favorite_lists,
     parse_list,
     parse_receipt_detail,
     parse_receipts,
@@ -91,6 +94,7 @@ class AppieData:
     receipt_viewer: ReceiptViewerCoordinator
     spotlight: SpotlightCoordinator
     bonus_box: BonusBoxCoordinator
+    favorite_lists: FavoriteListsCoordinator
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -451,6 +455,16 @@ class BonusBoxCoordinator(_AppieCoordinator[BonusBox | None]):
         if period is None or not period.period_start or not period.period_end:
             return None
         return parse_bonus_box(await self.client.get_bonus_box(period.period_start, period.period_end) or {})
+
+
+class FavoriteListsCoordinator(_AppieCoordinator[list[FavoriteList]]):
+    """The favorite lists ("lijstjes") with their size."""
+
+    def __init__(self, hass, entry, client) -> None:
+        super().__init__(hass, entry, client, "favoriete lijsten", FAVORITE_LISTS_INTERVAL)
+
+    async def _fetch(self) -> list[FavoriteList]:
+        return parse_favorite_lists(await self.client.get_favorite_lists())
 
 
 @dataclass

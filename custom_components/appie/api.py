@@ -172,6 +172,25 @@ states: $states }) {
   }
 }"""
 
+# appie-go shoppinglist.go (GetShoppingListItems and AddToFavoriteList).
+FAVORITE_LIST_ITEMS_QUERY = """query FavoriteListV2($ids: [String!]!) {
+  favoriteListV2(ids: $ids) {
+    id
+    description
+    totalSize
+    items { id productId quantity }
+  }
+}"""
+
+ADD_TO_FAVORITE_LIST_MUTATION = """mutation AddProductsToFavoriteList($favoriteListId: String!, \
+$products: [FavoriteListProductMutation!]!) {
+  favoriteListProductsAddV2(id: $favoriteListId, products: $products) {
+    __typename
+    status
+    errorMessage
+  }
+}"""
+
 
 class AppieError(Exception):
     """API call failed."""
@@ -322,6 +341,35 @@ class AppieClient:
 
     async def patch_list(self, items: list[dict]) -> None:
         await self._request("PATCH", "/mobile-services/shoppinglist/v2/items", {"items": items})
+
+    # favorite lists ("lijstjes")
+
+    async def get_favorite_lists(self) -> list[dict]:
+        """All favorite lists (v3). (verified)
+
+        GET /mobile-services/lists/v3/lists?productId=..; AH requires a productId
+        but returns all lists whatever it is, appie-go passes 1.
+        """
+        return await self._request("GET", "/mobile-services/lists/v3/lists?productId=1") or []
+
+    async def get_favorite_list_items(self, list_id: str) -> dict:
+        """One favorite list with its items: GraphQL favoriteListV2. (verified)
+
+        Query from appie-go shoppinglist.go; list ids are sent upper-case there.
+        """
+        return await self._graphql(FAVORITE_LIST_ITEMS_QUERY, {"ids": [list_id.upper()]})
+
+    async def add_to_favorite_list(self, list_id: str, products: list[dict[str, int]]) -> None:
+        """Add products to a favorite list: AddProductsToFavoriteList. (verified)
+
+        products: [{"productId", "quantity"}], as appie-go AddToFavoriteList sends.
+        """
+        data = await self._graphql(
+            ADD_TO_FAVORITE_LIST_MUTATION, {"favoriteListId": list_id.upper(), "products": products}
+        )
+        result = (data.get("data") or {}).get("favoriteListProductsAddV2") or {}
+        if result.get("status") != "SUCCESS":
+            raise AppieError(f"add to favorite list: {result.get('errorMessage') or result.get('status')}")
 
     # bonus
 

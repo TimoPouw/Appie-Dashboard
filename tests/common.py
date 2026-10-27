@@ -119,6 +119,24 @@ BONUS_BOX = {"data": {
     ],
 }}
 
+# GET /mobile-services/lists/v3/lists, from appie-go's API doc.
+FAVORITE_LISTS = [
+    {"id": "305e6a50-a970-457b-8831-409f572832d4", "description": "Weekboodschappen", "itemCount": 3,
+     "hasFavoriteProduct": False,
+     "productImages": [[{"width": 80, "height": 80, "url": "https://img.invalid/lijst"}]]},
+    {"id": "aaaa0000-0000-0000-0000-000000000001", "description": "Feestje", "itemCount": 0, "productImages": []},
+]
+
+# GraphQL favoriteListV2 with items, as queried in appie-go shoppinglist.go.
+FAVORITE_LIST_ITEMS = {"data": {"favoriteListV2": [{
+    "id": "305E6A50-A970-457B-8831-409F572832D4", "description": "Weekboodschappen", "totalSize": 3,
+    "items": [
+        {"id": "i1", "productId": 111, "quantity": 1},
+        {"id": "i2", "productId": 222, "quantity": 3},
+        {"id": "i3", "productId": 555, "quantity": 1},
+    ],
+}]}}
+
 
 async def setup_appie(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(

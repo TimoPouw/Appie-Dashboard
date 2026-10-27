@@ -54,6 +54,9 @@
     },
     "unknown_category": {
       "message": "Unknown bonus category \"{category}\". Choose from: {categories}."
+    },
+    "unknown_list": {
+      "message": "No favorite list \"{list}\". Your lists: {lists}."
     }
   },
   "services": {
@@ -132,6 +135,48 @@
         "categorie": {
           "name": "Category",
           "description": "A category name from the list this service returns without one."
+        }
+      }
+    },
+    "get_favorite_list": {
+      "name": "Get favorite list",
+      "description": "Returns the products on one of your favorite lists.",
+      "fields": {
+        "lijst": {
+          "name": "List",
+          "description": "Name or id of the favorite list."
+        }
+      }
+    },
+    "add_to_favorite_list": {
+      "name": "Add to favorite list",
+      "description": "Adds a product to one of your favorite lists, by search term or product number.",
+      "fields": {
+        "lijst": {
+          "name": "List",
+          "description": "Name or id of the favorite list."
+        },
+        "zoekterm": {
+          "name": "Search term",
+          "description": "What to add; products you often buy win."
+        },
+        "product_id": {
+          "name": "Product id",
+          "description": "AH product number, instead of a search term."
+        },
+        "aantal": {
+          "name": "Quantity",
+          "description": "How many (default 1)."
+        }
+      }
+    },
+    "favorite_list_to_list": {
+      "name": "Favorite list to shopping list",
+      "description": "Puts all products of a favorite list on the shopping list. Products already on it are only topped up.",
+      "fields": {
+        "lijst": {
+          "name": "List",
+          "description": "Name or id of the favorite list."
         }
       }
     }
