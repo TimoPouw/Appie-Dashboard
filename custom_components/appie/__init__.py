@@ -128,35 +128,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
 
 
 async def _probe(client: AppieClient) -> None:
-    """TEMPORARY: find Premium and 'mijn verrekeningen'."""
+    """TEMPORARY: find the evalue account type (verrekeningen as credit)."""
     import logging
 
     log = logging.getLogger(__name__)
-    settle = (
-        "settlements { __typename "
-        "... on CustomerCareSettlementsBank { title refundMethod conclusion { message amount { amount } } settlements { title subtitle dateLabel amount { amount } } } "
-        "... on CustomerCareSettlementsDeliverer { title refundMethod conclusion { message amount { amount } } settlements { title subtitle dateLabel amount { amount } } } "
-        "... on CustomerCareSettlementsInvoice { title refundMethod conclusion { message amount { amount } } settlements { title subtitle dateLabel amount { amount } } } }"
-    )
-    queries = {
-        "page_typename": "{ customerCareSettlementsPage { __typename } }",
-        "page": "{ customerCareSettlementsPage { " + settle + " } }",
-        "premium_v2_typename": "{ subscriptionPremiumSavingsV2 { __typename } }",
-        "premium_v2": "{ subscriptionPremiumSavingsV2 { lastUpdated subscriptionStartDate totalSavedAmount { amount } bonusBoxDiscountAmount { amount } bioDiscountAmount { amount } additionalPurchaseStampsObtained additionalAirmilesObtained } }",
-        "memberships": "{ member { memberships { __typename } } }",
-        "settlements_total": "{ settlementsTotal { totalAmount { amount } settlements { __typename } } }",
-    }
-    for kind in ("PREMIUM", "AH_PREMIUM", "PREMIUM_MEMBERSHIP", "MEMBERSHIP", "AHPREMIUM", "PREMIUM_YEARLY", "PREMIUM_YEAR", "SUBSCRIPTION"):
-        queries[f"current_{kind}"] = (
-            f'{{ subscriptionSummary(type: "{kind}") {{ hasHadSubscription currentSubscriptionCode }} '
-            f'subscriptionCurrent(type: "{kind}") {{ type code isActive endDate }} }}'
+    queries = {"history_args": "{ evalueTransactionHistory { __typename } }"}
+    for kind in ("SETTLEMENT", "SETTLEMENTS", "CUSTOMER", "MEMBER", "DEFAULT", "WALLET", "EVALUE", "AH", "AHWEBSHOP",
+                 "CONSUMER", "PERSONAL", "B2C", "CREDIT", "SHOP_CREDIT", "STORE_CREDIT", "REFUND", "LOYALTY", "PREMIUM",
+                 "settlement", "customer", "member", "MAIN", "PRIMARY", "TEGOED", "SHOPTEGOED", "BALANCE"):
+        queries[f"evalue_{kind}"] = (
+            f'{{ evalueAccountBalance(accountType: "{kind}") {{ value {{ amount formatted }} available {{ amount formatted }} }} }}'
         )
     for name, query in queries.items():
         try:
             data = await client._request("POST", "/graphql", {"query": "query Probe " + query, "variables": {}}, graphql_errors=True)
-            log.warning("appie probe %s: %s", name, str(data)[:900])
+            log.warning("appie probe %s: %s", name, str(data)[:500])
         except Exception as err:  # noqa: BLE001
-            log.warning("appie probe %s: %s", name, str(err)[:400])
+            log.warning("appie probe %s: %s", name, str(err)[:300])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> bool:
