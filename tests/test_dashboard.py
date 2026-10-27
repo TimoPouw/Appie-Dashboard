@@ -55,7 +55,9 @@ async def test_dashboard_templates_render(hass: HomeAssistant, api, dashboard, f
                      # Overzicht: what's in the Bonus Box and the "vaak gekocht" ranking.
                      "1 van 10 geactiveerd", "3× gekocht",
                      # Kassabonnen: spending per month.
-                     "okt 2026", "€ 43,08"):
+                     "okt 2026", "€ 43,08",
+                     # Sparen.
+                     "32 van 180 zegels", "Spaar voor pannen", "Fruitweek", "1 van 3"):
         assert expected in joined, expected
     assert "{{" not in joined and "{%" not in joined
 

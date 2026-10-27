@@ -602,7 +602,7 @@ class SavingsCoordinator(_AppieCoordinator[Savings]):
                     programs = add_program_balances(programs, points)
             new.programs = programs if raw.get("loyaltyPrograms") is not None else old.programs
             new.challenges = (
-                parse_challenges(raw.get("loyaltyChallenges"))
+                parse_challenges(raw.get("loyaltyChallenges"), dt_util.now().date())
                 if raw.get("loyaltyChallenges") is not None
                 else old.challenges
             )

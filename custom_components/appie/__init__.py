@@ -123,25 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.
     entry.async_create_background_task(hass, favorites.async_refresh(), f"{entry.entry_id} favorites")
-    entry.async_create_background_task(hass, _probe(client), "appie probe")
     return True
-
-
-async def _probe(client: AppieClient) -> None:
-    """TEMPORARY: which subscription type AH knows (logs schema answers only)."""
-    import logging
-
-    log = logging.getLogger(__name__)
-    for kind in ("PREMIUM", "premium", "AH_PREMIUM", "DELIVERY_BUNDLE", "BUNDLE", "Premium"):
-        query = (
-            f'query Probe {{ subscriptionSummary(type: "{kind}") {{ hasHadSubscription currentSubscriptionCode }} '
-            f'subscriptionCurrent(type: "{kind}") {{ type code isActive }} }}'
-        )
-        try:
-            data = await client._request("POST", "/graphql", {"query": query, "variables": {}}, graphql_errors=True)
-            log.warning("appie probe %s: %s", kind, str(data)[:400])
-        except Exception as err:  # noqa: BLE001
-            log.warning("appie probe %s: %s", kind, str(err)[:300])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> bool:

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0
+
+### Nieuw
+
+- **Sparen**: `sensor.albert_heijn_koopzegels` (zegels, boekjes, rente) en `sensor.albert_heijn_koopzegels_waarde` (wat ze waard zijn bij inleveren).
+- `sensor.albert_heijn_air_miles`: je Air Miles-saldo.
+- `sensor.albert_heijn_spaaracties`: lopende spaaracties met je punten per actie.
+- `sensor.albert_heijn_uitdagingen`: uitdagingen ("3 weken €50 besteden") met de voortgang per stap.
+- `sensor.albert_heijn_premium` en `sensor.albert_heijn_premium_besparing`: of je Premium hebt en wat het je (zou) besparen per jaar, volgens AH.
+- `sensor.albert_heijn_cadeaukaarten` en `sensor.albert_heijn_openstaand_tegoed`: saldo van je cadeaukaarten (alleen de laatste 4 cijfers van een kaartnummer) en geld dat AH je nog terug moet geven.
+- `sensor.albert_heijn_gemiste_bonus`: producten die je vaak koopt, die nu in de bonus zijn en nog niet op je lijst staan.
+- Dashboard: tabblad **Sparen**.
+
+Alles is alleen-lezen. De aanroepen staan niet in appie-go zelf; wat AH nodig heeft is live gecontroleerd (zie README, Sparen).
+
 ## 0.4.0
 
 ### Nieuw

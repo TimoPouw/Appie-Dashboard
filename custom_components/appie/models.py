@@ -995,6 +995,7 @@ def _period(raw: dict | None) -> tuple[date | None, date | None]:
 
 
 def current_programs(raw: list[dict] | None, today: date) -> list[dict]:
+    # Sorted by points later (add_program_balances): the ones you save for first.
     """loyaltyPrograms you can still save for or redeem; AH also lists old ones."""
     found = []
     for program in raw or []:
@@ -1025,11 +1026,16 @@ def current_programs(raw: list[dict] | None, today: date) -> list[dict]:
 def add_program_balances(programs: list[dict], raw: list[dict] | None) -> list[dict]:
     """Fill "punten" from loyaltyPointsBalances."""
     balances = {b.get("programId"): _int(b.get("balance")) for b in raw or [] if isinstance(b, dict)}
-    return [{**p, "punten": balances.get(p["id"], p["punten"])} for p in programs]
+    filled = [{**p, "punten": balances.get(p["id"], p["punten"])} for p in programs]
+    return sorted(filled, key=lambda p: -(p["punten"] or 0))
 
 
-def parse_challenges(raw: list[dict] | None) -> list[dict]:
-    """loyaltyChallenges with the progress of each step."""
+def parse_challenges(raw: list[dict] | None, today: date) -> list[dict]:
+    """loyaltyChallenges with the progress of each step.
+
+    progress and maxProgress can be cents (a spending challenge); AH's own
+    formatted texts are kept next to them for display.
+    """
     found = []
     for challenge in raw or []:
         if not isinstance(challenge, dict):
@@ -1038,8 +1044,11 @@ def parse_challenges(raw: list[dict] | None) -> list[dict]:
         reward = challenge.get("reward") or {}
         _, reward_end = _period(reward.get("duration"))
         steps = []
+        ends = [reward_end]
         for step in challenge.get("steps") or []:
             start, end = _period(step.get("duration"))
+            ends.append(end)
+            details = step.get("progressDetails") or {}
             steps.append(
                 {
                     "label": step.get("label"),
@@ -1049,8 +1058,12 @@ def parse_challenges(raw: list[dict] | None) -> list[dict]:
                     "doel": _int(step.get("maxProgress")),
                     "van": start.isoformat() if start else None,
                     "tot": end.isoformat() if end else None,
+                    "voortgang_tekst": details.get("progress"),
+                    "nog_te_gaan": details.get("remainingProgress"),
+                    "doel_tekst": details.get("total"),
                 }
             )
+        last = max((d for d in ends if d), default=None)
         found.append(
             {
                 "id": challenge.get("id"),
@@ -1061,6 +1074,7 @@ def parse_challenges(raw: list[dict] | None) -> list[dict]:
                 "beloning": reward.get("label"),
                 "beloning_uitleg": reward.get("subtitle"),
                 "beloning_tot": reward_end.isoformat() if reward_end else None,
+                "afgelopen": bool(last and last < today),
                 "stappen": steps,
             }
         )
@@ -1068,7 +1082,11 @@ def parse_challenges(raw: list[dict] | None) -> list[dict]:
 
 
 def parse_premium(raw: dict | None) -> dict[str, Any] | None:
-    """subscriptionCurrent plus the savings estimates AH computes for Premium."""
+    """subscriptionCurrent plus AH's estimate of what Premium saves you.
+
+    The estimate is there without a subscription too: then it is what
+    Premium would have saved, based on your purchases.
+    """
     if not raw:
         return None
     current = raw.get("subscriptionCurrent") or {}
@@ -1087,10 +1105,10 @@ def parse_premium(raw: dict | None) -> dict[str, Any] | None:
         "verlenging": extension.get("date"),
         "prijs_verlenging": _amount(extension.get("sellPrice")),
         "actieve_dagen": _int(estimate.get("subscriptionActiveDays")),
-        "bespaard_per_jaar": _money(estimate.get("estimatedYearlySavedAmount")),
+        "besparing_per_jaar": _money(estimate.get("estimatedYearlySavedAmount")),
         "zegels_per_jaar": _int(estimate.get("estimatedYearlySavedStampsAmount")),
-        "bespaard_rest_periode": _money(estimate.get("estimatedRemainingDaysSavedAmount")),
-        "bespaard_per_dag": _money(estimate.get("averageDailySavedAmount")),
+        "besparing_rest_periode": _money(estimate.get("estimatedRemainingDaysSavedAmount")),
+        "besparing_per_dag": _money(estimate.get("averageDailySavedAmount")),
         "mogelijke_besparing": _money(potential.get("premiumSavingPotential")),
     }
 

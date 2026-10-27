@@ -11,6 +11,7 @@ from custom_components.appie.const import API_BASE
 from custom_components.appie.models import (
     add_program_balances,
     current_programs,
+    parse_challenges,
     parse_gift_cards,
     parse_premium,
     parse_purchase_stamps,
@@ -47,6 +48,11 @@ def test_current_programs_skip_ended_and_get_points() -> None:
     assert current_programs(LOYALTY["loyaltyPrograms"], date(2026, 9, 1)) == []
 
 
+def test_ended_challenge_is_not_counted() -> None:
+    challenges = parse_challenges(LOYALTY["loyaltyChallenges"], date(2099, 2, 1))
+    assert challenges[0]["afgelopen"] is True
+
+
 def test_premium_without_subscription() -> None:
     parsed = parse_premium({"subscriptionCurrent": None, "subscriptionSavingPotential": {"premiumSavingPotential": 50}})
     assert parsed["actief"] is False and parsed["mogelijke_besparing"] == 50.0
@@ -78,12 +84,14 @@ async def test_savings_sensors(hass: HomeAssistant, api) -> None:
     assert challenges.state == "1"
     assert challenges.attributes["uitdagingen"][0]["stappen"][0] == {
         "label": "Koop fruit", "omschrijving": "3 keer", "status": "IN_PROGRESS", "voortgang": 1, "doel": 3,
-        "van": "2026-10-20", "tot": "2099-01-01",
+        "van": "2026-10-20", "tot": "2099-01-01", "voortgang_tekst": "1", "nog_te_gaan": "2", "doel_tekst": "3",
     }
+    assert challenges.attributes["uitdagingen"][0]["afgelopen"] is False
 
     premium = hass.states.get("sensor.albert_heijn_premium")
     assert premium.state == "actief" and premium.attributes["eind"] == "2026-12-31"
     assert hass.states.get("sensor.albert_heijn_premium_besparing").state == "123.46"
+    assert premium.attributes["besparing_per_jaar"] == 123.46
 
     gift = hass.states.get("sensor.albert_heijn_cadeaukaarten")
     assert gift.state == "25.0" and gift.attributes["aantal"] == 1
@@ -182,3 +190,13 @@ async def test_api_errors_without_data_raise(hass: HomeAssistant, aioclient_mock
         assert "nope" in str(err)
     else:
         raise AssertionError("expected AppieError")
+
+
+async def test_diagnostics_hide_gift_cards(hass: HomeAssistant, api) -> None:
+    from custom_components.appie.diagnostics import async_get_config_entry_diagnostics
+
+    entry = await setup_appie(hass)
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    assert diag["savings"]["gift_cards"] == 1
+    assert diag["savings"]["stamps"]["zegels"] == 212
+    assert "7890" not in str(diag)

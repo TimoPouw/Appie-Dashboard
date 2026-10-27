@@ -183,7 +183,8 @@ LOYALTY = {
             "reward": {"label": "100 koopzegels", "subtitle": None, "duration": {"start": "2099-01-01", "end": "2099-01-31"}},
             "steps": [
                 {"id": 1, "status": "IN_PROGRESS", "label": "Koop fruit", "subtitle": "3 keer", "progress": 1,
-                 "maxProgress": 3, "duration": {"start": "2026-10-20", "end": "2099-01-01"}},
+                 "maxProgress": 3, "duration": {"start": "2026-10-20", "end": "2099-01-01"},
+                 "progressDetails": {"progress": "1", "remainingProgress": "2", "total": "3"}},
             ],
         }
     ],

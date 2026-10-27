@@ -237,7 +237,10 @@ LOYALTY_QUERY = """query FetchLoyalty {
     id name status statusMessage
     info { title description }
     reward { label subtitle duration { start end } }
-    steps { id status label subtitle progress maxProgress duration { start end } }
+    steps {
+      id status label subtitle progress maxProgress duration { start end }
+      progressDetails { progress remainingProgress total }
+    }
   }
 }"""
 
@@ -263,7 +266,8 @@ WALLET_QUERY = """query FetchWallet {
   settlementsTotal { totalAmount { amount } settlements { __typename } }
 }"""
 
-# subscriptionCurrent(type:) takes a String; this is the value for AH Premium.
+# subscriptionCurrent(type:) takes a String. Checked live: "PREMIUM" is accepted
+# (null without a subscription), "AH_PREMIUM" and "DELIVERY_BUNDLE" are not.
 PREMIUM_TYPE = "PREMIUM"
 
 

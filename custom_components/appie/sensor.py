@@ -516,7 +516,7 @@ SAVINGS_SENSORS = (
         icon="mdi:flag-checkered",
         part="challenges",
         unit="uitdagingen",
-        value=len,
+        value=lambda c: sum(not u["afgelopen"] for u in c),
         attributes=lambda c: {"uitdagingen": c},
     ),
     SavingsDescription(
@@ -536,10 +536,12 @@ SAVINGS_SENSORS = (
         part="premium",
         unit="EUR",
         device_class=SensorDeviceClass.MONETARY,
-        value=lambda p: p.get("bespaard_per_jaar") if p.get("actief") else None,
+        # With Premium: what it saves you; without: what it would, per AH's estimate.
+        value=lambda p: p.get("besparing_per_jaar"),
         attributes=lambda p: {
-            "bespaard_rest_periode": p.get("bespaard_rest_periode"),
-            "bespaard_per_dag": p.get("bespaard_per_dag"),
+            "actief": p.get("actief"),
+            "besparing_rest_periode": p.get("besparing_rest_periode"),
+            "besparing_per_dag": p.get("besparing_per_dag"),
             "zegels_per_jaar": p.get("zegels_per_jaar"),
         },
     ),

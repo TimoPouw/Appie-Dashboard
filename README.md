@@ -44,10 +44,24 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `binary_sensor.albert_heijn_winkel_open` | Is je vaste winkel nu open? |
 | `sensor.albert_heijn_winkel` | Sluitingstijd van vandaag ("22:00") of `gesloten`. Attributen `store_id`, `adres`, `openingstijden` (de komende dagen: `datum`, `dag`, `open`, `dicht`), `services`. |
 | `sensor.albert_heijn_koopjes` | Aantal koopjes (laatste-kans-afprijzingen) in je winkel. Attribuut `items`: `product_id`, `title`, `size`, `category`, `markdown_type`, `expires`, `is_favoriet`, `price`, `price_was`, `percentage`. |
+| `sensor.albert_heijn_gemiste_bonus` | Aantal producten uit Vaak gekocht die nu in de bonus zijn maar niet op je lijst staan. Attribuut `producten`: dezelfde velden als bij Vaak gekocht. Volgt je lijst direct. |
+| `sensor.albert_heijn_koopzegels` | Aantal koopzegels. Attributen `volle_boekjes`, `in_huidig_boekje`, `zegels_per_boekje`, `zegels_half_boekje`, `prijs_per_zegel`, `rente_vol_boekje`, `ingelegd`, `rente`, `uitbetaling` (€). |
+| `sensor.albert_heijn_koopzegels_waarde` | Wat je koopzegels waard zijn als je ze inlevert, met rente (€). |
+| `sensor.albert_heijn_air_miles` | Je Air Miles-saldo. Attribuut `fout`: gevuld als je Air Miles opnieuw moet koppelen in de app. |
+| `sensor.albert_heijn_spaaracties` | Aantal lopende spaaracties (ook die je alleen nog kunt inleveren). Attributen `met_punten` en `acties`: `id`, `naam`, `omschrijving`, `type`, `status`, `sparen_tot`, `inleveren_tot`, `per_kaart`, `punten`. |
+| `sensor.albert_heijn_uitdagingen` | Aantal lopende uitdagingen ("3 weken €50 besteden"). Attribuut `uitdagingen`: `naam`, `omschrijving`, `status`, `melding`, `beloning`, `beloning_tot`, `afgelopen` en `stappen` (`label`, `status`, `voortgang`, `doel`, `voortgang_tekst`, `nog_te_gaan`, `doel_tekst`, `van`, `tot`). Bij een besteed-bedrag staan `voortgang` en `doel` in centen; de `_tekst`-velden zijn zoals de app ze toont. |
+| `sensor.albert_heijn_premium` | `actief` of `niet actief`. Attributen `omschrijving`, `start`, `eind`, `proefperiode`, `prijs`, `verlenging`, `prijs_verlenging`, `actieve_dagen`, `besparing_per_jaar`, `zegels_per_jaar`, `besparing_rest_periode`, `besparing_per_dag`, `mogelijke_besparing`. |
+| `sensor.albert_heijn_premium_besparing` | AH's schatting van wat Premium je per jaar bespaart (€). Zonder Premium: wat het je zou besparen, op basis van wat je koopt. |
+| `sensor.albert_heijn_cadeaukaarten` | Saldo van de cadeaukaarten in de app (€). Attributen `aantal` en `kaarten` (`kaart` met alleen de laatste 4 cijfers, `saldo`, `status`, `sinds`). |
+| `sensor.albert_heijn_openstaand_tegoed` | Geld dat AH je nog terug moet geven, bijvoorbeeld voor een terugbetaling (€). Attribuut `aantal`. |
 
-Grote attributen (`offers`, `items`, `recent`, `producten`, `suggesties` en alles van de gekozen kassabon) worden niet in de database opgeslagen.
+Grote attributen (`offers`, `items`, `recent`, `producten`, `suggesties`, `acties`, `uitdagingen`, `kaarten` en alles van de gekozen kassabon) worden niet in de database opgeslagen.
 
 Kassabonnen zijn alleen de bonnen uit de winkel waarbij je je Bonuskaart (app) hebt gescand, net als in de app.
+
+### Sparen
+
+Koopzegels, Air Miles, spaaracties, uitdagingen, Premium, cadeaukaarten en openstaand tegoed worden alleen gelezen: de integratie levert geen zegels in, wisselt niets in en betaalt niets. appie-go noemt deze gegevens in zijn beschrijving van de AH-API, maar gebruikt ze zelf niet. Welke gegevens AH nodig heeft, is daarom live gecontroleerd met de foutmeldingen van AH (de aanroepen staan als *inferred* in `api.py`). Geeft AH een onderdeel een keer niet, dan houdt die sensor zijn laatste waarde; heeft hij nog nooit een waarde gehad, dan is hij niet beschikbaar. De andere sensoren hebben daar geen last van.
 
 ### Kassabonnen bekijken
 
@@ -67,6 +81,7 @@ Kies een bon in `select.albert_heijn_kassabon`; de integratie haalt hem op en ze
 | Vaak gekocht | elke 12 uur (elke bon maar één keer) |
 | Winkel | elke 12 uur; open of dicht wordt elke minuut lokaal uitgerekend |
 | Koopjes | elke 30 minuten, alleen als je winkel open is |
+| Sparen (koopzegels, Air Miles, spaaracties, uitdagingen, Premium, tegoeden) | elke 3 uur, en meteen na een nieuwe kassabon |
 
 ## Opties
 
@@ -332,7 +347,7 @@ Versies met `-beta` in de naam (zoals `v0.3.0-beta.1`) zijn pre-releases. HACS l
 
 ## Dashboard
 
-In [`dashboards/appie.yaml`](dashboards/appie.yaml) staat een kant-en-klaar dashboard met vier tabbladen: **Boodschappen** (lijst, kosten, Vaak gekocht-knoppen, Vergeet niet, favoriete lijsten), **Bonus** (bonus voor jou, Bonus Box, spotlight), **Kassabonnen** (uitgaven per maand, recente bonnen met PDF, bon bekijken) en **Winkel** (openingstijden en koopjes). Het gebruikt alleen standaardkaarten van Home Assistant, dus je hoeft niets extra te installeren.
+In [`dashboards/appie.yaml`](dashboards/appie.yaml) staat een kant-en-klaar dashboard met vijf tabbladen naast het overzicht: **Boodschappen** (lijst, kosten, Vaak gekocht-knoppen, Vergeet niet, favoriete lijsten), **Bonus** (bonus voor jou, Bonus Box, spotlight), **Kassabonnen** (uitgaven per maand, recente bonnen met PDF, bon bekijken) **Winkel** (openingstijden en koopjes) en **Sparen** (koopzegels, Air Miles, Premium, tegoeden, uitdagingen, spaaracties en gemiste bonus). Het gebruikt alleen standaardkaarten van Home Assistant, dus je hoeft niets extra te installeren.
 
 1. Instellingen → Dashboards → **Dashboard toevoegen** → **Nieuw dashboard vanaf nul**, noem het bijvoorbeeld *Albert Heijn*.
 2. Open het, ⋮ → **Bewerken** → ⋮ → **Ruwe configuratie-editor**.
