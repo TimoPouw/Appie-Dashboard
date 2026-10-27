@@ -557,8 +557,9 @@ def parse_bonus_box(raw: dict) -> BonusBox:
     return BonusBox(max_activations=bundles[0].get("maximumActivations") if bundles else None, offers=offers)
 
 
-# "Field 'x' argument 'id' of type 'String!' is required, but it was not provided."
-_REQUIRED_ARG = re.compile(r"argument '(\w+)' of type '([\w!\[\]]+)' is required")
+# 'Field "x" argument "externalId" of type "Int!" is required, but it was not provided.'
+# (AH quotes with ", other GraphQL servers with ').
+_REQUIRED_ARG = re.compile(r"argument [\"'](\w+)[\"'] of type [\"']([\w!\[\]]+)[\"'] is required")
 
 
 def required_arguments(messages: list[str]) -> list[tuple[str, str]]:
@@ -582,7 +583,9 @@ def activation_values(args: list[tuple[str, str]], offer: dict) -> dict[str, Any
         key = name.lower()
         if key in ("id", "promotionid", "bonuspromotionid", "segmentid", "personalpromotionid"):
             value = offer.get("id")
-        elif key in ("hqid", "offerid"):
+        elif key in ("hqid", "offerid", "externalid"):
+            # AH asks for "externalId: Int!". The schema lists hqId among a Bonus Box
+            # offer's external ids (TargetedOfferExternalIds), and hqId is the Int one.
             value = offer.get("hq_id")
         elif key in ("periodstart", "startdate", "validon"):
             value = offer.get("start_date")
