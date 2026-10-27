@@ -1,0 +1,36 @@
+blueprint:
+  name: Albert Heijn - koopje van iets wat je vaak koopt
+  description: >-
+    Krijg een melding als je winkel een koopje heeft van een product uit
+    Vaak gekocht. Elk koopje komt maar één keer langs.
+  domain: automation
+  source_url: https://github.com/TimoPouw/Appie-Dashboard/blob/main/blueprints/automation/appie/koopje_favoriet.yaml
+  input:
+    melding:
+      name: Melding
+      description: >-
+        Wat er moet gebeuren, bijvoorbeeld een notify-actie naar je telefoon.
+        Je kunt deze variabelen gebruiken: {{ titel }}, {{ prijs }}, {{ prijs_was }},
+        {{ formaat }}, {{ geldig_tot }}.
+      selector:
+        action: {}
+      default:
+        - action: persistent_notification.create
+          data:
+            title: "Koopje bij AH"
+            message: "{{ titel }} ({{ formaat }}) voor € {{ prijs }} in plaats van € {{ prijs_was }}."
+
+mode: queued
+
+triggers:
+  - trigger: event
+    event_type: appie_koopje_favoriet
+
+variables:
+  titel: "{{ trigger.event.data.title }}"
+  formaat: "{{ trigger.event.data.size or '' }}"
+  prijs: "{{ trigger.event.data.price }}"
+  prijs_was: "{{ trigger.event.data.price_was }}"
+  geldig_tot: "{{ trigger.event.data.expires }}"
+
+actions: !input melding
