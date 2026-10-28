@@ -453,11 +453,14 @@ views:
           - type: tile
             entity: binary_sensor.albert_heijn_winkel_open
             name: Nu open
+          - type: tile
+            entity: sensor.albert_heijn_winkel_open_vanaf
+            name: Vandaag open vanaf
             grid_options:
               columns: 6
           - type: tile
-            entity: sensor.albert_heijn_winkel
-            name: Sluit om
+            entity: sensor.albert_heijn_winkel_open_tot
+            name: Vandaag open tot
             grid_options:
               columns: 6
           - type: markdown

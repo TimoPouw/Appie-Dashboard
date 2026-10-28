@@ -43,6 +43,8 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `sensor.albert_heijn_favoriete_lijsten` | Aantal favoriete lijsten. Attribuut `lijsten`: `id`, `naam`, `aantal`, `image`. |
 | `binary_sensor.albert_heijn_winkel_open` | Is je vaste winkel nu open? |
 | `sensor.albert_heijn_winkel` | Sluitingstijd van vandaag ("22:00") of `gesloten`. Attributen `store_id`, `adres`, `openingstijden` (de komende dagen: `datum`, `dag`, `open`, `dicht`), `services`. |
+| `sensor.albert_heijn_winkel_open_vanaf` | Hoe laat je winkel vandaag opengaat ("08:00"), of `gesloten` als hij vandaag dicht is. |
+| `sensor.albert_heijn_winkel_open_tot` | Hoe laat je winkel vandaag dichtgaat ("20:00"), of `gesloten` als hij vandaag dicht is. |
 | `sensor.albert_heijn_koopjes` | Aantal koopjes (laatste-kans-afprijzingen) in je winkel. Attribuut `items`: `product_id`, `title`, `size`, `category`, `markdown_type`, `expires`, `is_favoriet`, `price`, `price_was`, `percentage`. |
 | `sensor.albert_heijn_gemiste_bonus` | Aantal producten uit Vaak gekocht die nu in de bonus zijn maar niet op je lijst staan. Attribuut `producten`: dezelfde velden als bij Vaak gekocht. Volgt je lijst direct. |
 | `sensor.albert_heijn_koopzegels` | Aantal koopzegels. Attributen `volle_boekjes`, `in_huidig_boekje`, `zegels_per_boekje`, `zegels_half_boekje`, `prijs_per_zegel`, `rente_vol_boekje`, `ingelegd`, `rente`, `uitbetaling` (€). |
