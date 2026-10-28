@@ -238,6 +238,13 @@ class Store:
                 return True
         return False
 
+    def hours_today(self, now: datetime) -> tuple[str, str] | None:
+        """Today's opening and closing time, or None when closed all day."""
+        today = self.today(now)
+        if today is None or today.window(now.tzinfo) is None:
+            return None
+        return today.open_from, today.open_until
+
     def closing_time(self, now: datetime) -> str | None:
         """Today's closing time while the store is still to open or open today."""
         today = self.today(now)

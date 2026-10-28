@@ -58,6 +58,8 @@ async def async_setup_entry(
             ListCostSensor(entry, data.list_cost),
             DontForgetSensor(entry, data.dont_forget),
             StoreSensor(entry, data.store),
+            StoreHoursSensor(entry, data.store, "winkel_open_vanaf", "Winkel open vanaf", 0),
+            StoreHoursSensor(entry, data.store, "winkel_open_tot", "Winkel open tot", 1),
             BargainsSensor(entry, data.bargains),
             PickedReceiptSensor(entry, data.receipt_viewer),
             SpotlightSensor(entry, data.spotlight),
@@ -288,6 +290,37 @@ class StoreSensor(_Base, SensorEntity):
             "openingstijden": store.upcoming(dt_util.now()),
             "services": store.services,
         }
+
+
+class StoreHoursSensor(_Base, SensorEntity):
+    """Today's opening (index 0) or closing (index 1) time, or "gesloten"."""
+
+    _attr_icon = "mdi:clock-outline"
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: StoreCoordinator, key: str, name: str, index: int) -> None:
+        super().__init__(entry, coordinator, key, name)
+        self._index = index
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # The day changes at midnight without a new fetch.
+        self.async_on_remove(async_track_time_interval(self.hass, self._tick, timedelta(minutes=1)))
+
+    @callback
+    def _tick(self, _now) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data is not None
+
+    @property
+    def native_value(self) -> str | None:
+        store = self.coordinator.data
+        if store is None:
+            return None
+        hours = store.hours_today(dt_util.now())
+        return hours[self._index] if hours else STATE_CLOSED
 
 
 class BargainsSensor(_Base, SensorEntity):

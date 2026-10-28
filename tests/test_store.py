@@ -127,3 +127,21 @@ async def test_store_redacted_in_diagnostics(hass: HomeAssistant, api, amsterdam
     assert diag["store"]["address"] == "**REDACTED**"
     assert diag["store"]["id"] == 1527
     assert "Nachtegaalstraat" not in str(diag)
+
+
+async def test_open_from_and_until_today(hass: HomeAssistant, api, amsterdam) -> None:
+    # 06:00 in Amsterdam: not open yet, but today's hours are known.
+    amsterdam.move_to("2026-10-27T05:00:00+00:00")
+    await setup_appie(hass)
+    assert hass.states.get("binary_sensor.albert_heijn_winkel_open").state == "off"
+    assert hass.states.get("sensor.albert_heijn_winkel_open_vanaf").state == "08:00"
+    assert hass.states.get("sensor.albert_heijn_winkel_open_tot").state == "22:00"
+
+    # Wednesday closes at midnight.
+    await _tick(hass, amsterdam, "2026-10-28T09:00:00+00:00")
+    assert hass.states.get("sensor.albert_heijn_winkel_open_tot").state == "00:00"
+
+    # Thursday: closed all day.
+    await _tick(hass, amsterdam, "2026-10-29T09:00:00+00:00")
+    assert hass.states.get("sensor.albert_heijn_winkel_open_vanaf").state == "gesloten"
+    assert hass.states.get("sensor.albert_heijn_winkel_open_tot").state == "gesloten"

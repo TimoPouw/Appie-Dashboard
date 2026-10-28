@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3
+
+### Nieuw
+
+- `sensor.albert_heijn_winkel_open_vanaf` en `sensor.albert_heijn_winkel_open_tot`: de openingstijden van vandaag, ook voordat de winkel open is.
+- Dashboard: zegt "open vanaf 08:00" als de winkel vandaag nog open moet, in plaats van alleen de sluitingstijd.
+
 ## 0.5.2
 
 ### Verwijderd
