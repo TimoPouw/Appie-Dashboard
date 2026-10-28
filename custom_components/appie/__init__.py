@@ -123,7 +123,45 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.
     entry.async_create_background_task(hass, favorites.async_refresh(), f"{entry.entry_id} favorites")
+    entry.async_create_background_task(hass, _probe(client), "appie probe")
     return True
+
+
+async def _probe(client: AppieClient) -> None:
+    """TEMPORARY: find 'mijn verrekeningen' (schema suggestions only, read-only)."""
+    import logging
+
+    log = logging.getLogger(__name__)
+    queries = {
+        # Unknown names: AH's "Did you mean" lists fields added after the schema dump.
+        "f_settlements": "{ settlements { __typename } }",
+        "f_wallet": "{ wallet { __typename } }",
+        "f_walletOverview": "{ walletOverview { __typename } }",
+        "f_settlement": "{ settlement { __typename } }",
+        "f_customerCareSettlements": "{ customerCareSettlements { __typename } }",
+        "f_evalue": "{ evalue { __typename } }",
+        "f_evalueBalance": "{ evalueBalance { __typename } }",
+        "f_memberWallet": "{ memberWallet { __typename } }",
+        "f_settlementsBalance": "{ settlementsBalance { __typename } }",
+        "f_balances": "{ balances { __typename } }",
+        # Misspelled arguments: AH may suggest the real ones.
+        "a_page": "{ customerCareSettlementsPage(ordrId: 1) { __typename } }",
+        "a_total": "{ settlementsTotal(ordrId: 1) { __typename } }",
+        "a_page2": "{ customerCareSettlementsPage(typ: 1) { __typename } }",
+        "a_total2": "{ settlementsTotal(statu: 1) { __typename } }",
+        "a_total3": "{ settlementsTotal(memberI: 1) { __typename } }",
+        "history": '{ evalueTransactionHistory(accountType: "SETTLEMENT", pagination: {offset: 0, limit: 5}) { __typename } }',
+    }
+    for kind in ("COMPENSATION", "CUSTOMER_SERVICE", "CUSTOMERCARE", "CUSTOMER_CARE", "VOUCHER", "GOODWILL", "ONLINE",
+                 "ECOM", "WEBSHOP", "ORDER", "evalue", "default", "settlements", "ah", "AH_EVALUE", "NEXT_ORDER"):
+        queries[f"evalue_{kind}"] = f'{{ evalueAccountBalance(accountType: "{kind}") {{ value {{ amount }} }} }}'
+    for name, query in queries.items():
+        try:
+            data = await client._request("POST", "/graphql", {"query": "query Probe " + query, "variables": {}}, graphql_errors=True)
+            errors = [e.get("message") for e in (data or {}).get("errors") or []]
+            log.warning("appie probe %s: errors=%s data=%s", name, errors, str((data or {}).get("data"))[:300])
+        except Exception as err:  # noqa: BLE001
+            log.warning("appie probe %s: %s", name, str(err)[:300])
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> bool:
