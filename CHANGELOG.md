@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+### Verwijderd
+
+- `sensor.albert_heijn_openstaand_tegoed`. Hij gaf € 0 terwijl de app een verrekening van de klantenservice liet zien: het AH-onderdeel erachter (`settlementsTotal`) bevat die niet. Liever geen sensor dan een verkeerd bedrag. Hij wordt automatisch uit Home Assistant gehaald.
+
 ## 0.5.1
 
 ### Opgelost

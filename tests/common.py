@@ -214,5 +214,4 @@ WALLET = {
         {"cardNumber": "6299001234567890", "status": "ACTIVE", "createdDate": "2026-05-01T10:00:00Z",
          "balance": {"amount": {"amount": 25.0}}},
     ],
-    "settlementsTotal": {"totalAmount": {"amount": 3.5}, "settlements": [{"__typename": "SettlementV2"}]},
 }

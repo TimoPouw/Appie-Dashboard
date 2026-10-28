@@ -1,4 +1,4 @@
-"""Koopzegels, Air Miles, spaaracties, uitdagingen, Premium, tegoeden and gemiste bonus."""
+"""Koopzegels, Air Miles, spaaracties, uitdagingen, Premium, cadeaukaarten and gemiste bonus."""
 
 import logging
 from datetime import date
@@ -15,7 +15,6 @@ from custom_components.appie.models import (
     parse_gift_cards,
     parse_premium,
     parse_purchase_stamps,
-    parse_settlements,
 )
 
 from .common import LOYALTY, PREMIUM, STAMPS, TOKENS, WALLET, setup_appie
@@ -69,8 +68,6 @@ def test_premium_without_subscription() -> None:
 def test_gift_card_number_is_masked() -> None:
     cards = parse_gift_cards(WALLET["paymentsGetGiftCards"])
     assert cards == [{"kaart": "•••• 7890", "saldo": 25.0, "status": "ACTIVE", "sinds": "2026-05-01T10:00:00Z"}]
-    assert parse_settlements(WALLET["settlementsTotal"]) == {"totaal": 3.5, "aantal": 1}
-    assert parse_settlements({"totalAmount": None, "settlements": None}) == {"totaal": 0.0, "aantal": 0}
 
 
 async def test_savings_sensors(hass: HomeAssistant, api) -> None:
@@ -105,7 +102,8 @@ async def test_savings_sensors(hass: HomeAssistant, api) -> None:
     gift = hass.states.get("sensor.albert_heijn_cadeaukaarten")
     assert gift.state == "25.0" and gift.attributes["aantal"] == 1
     assert "6299001234567890" not in str(gift.attributes)
-    assert hass.states.get("sensor.albert_heijn_openstaand_tegoed").state == "3.5"
+    # Removed in 0.5.2: settlementsTotal didn't show a real customer service credit.
+    assert hass.states.get("sensor.albert_heijn_openstaand_tegoed") is None
 
 
 async def test_one_failing_part_leaves_the_rest(hass: HomeAssistant, api) -> None:
@@ -209,3 +207,13 @@ async def test_diagnostics_hide_gift_cards(hass: HomeAssistant, api) -> None:
     assert diag["savings"]["gift_cards"] == 1
     assert diag["savings"]["stamps"]["zegels"] == 212
     assert "7890" not in str(diag)
+
+
+async def test_removed_sensor_leaves_the_registry(hass: HomeAssistant, api) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    registry.async_get_or_create("sensor", "appie", "12345_openstaand_tegoed", suggested_object_id="albert_heijn_openstaand_tegoed")
+    assert registry.async_get("sensor.albert_heijn_openstaand_tegoed")
+    await setup_appie(hass)
+    assert registry.async_get("sensor.albert_heijn_openstaand_tegoed") is None

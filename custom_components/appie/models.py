@@ -935,7 +935,7 @@ def best_match(results: list[SearchResult], favorites: list[Favorite]) -> tuple[
     return results[0], MATCH_SEARCH
 
 
-# --- savings: koopzegels, Air Miles, spaaracties, Premium, tegoeden -----------------
+# --- savings: koopzegels, Air Miles, spaaracties, Premium, cadeaukaarten ------------
 
 
 def _amount(value: Any) -> float | None:
@@ -1144,13 +1144,6 @@ def parse_gift_cards(raw: list[dict] | None) -> list[dict]:
             }
         )
     return cards
-
-
-def parse_settlements(raw: dict | None) -> dict[str, Any] | None:
-    """settlementsTotal: credit AH still owes you (refunds, returned deposit)."""
-    if not raw:
-        return None
-    return {"totaal": _amount(raw.get("totalAmount")) or 0.0, "aantal": len(raw.get("settlements") or [])}
 
 
 def missed_bonus(favorites: list[Favorite], list_items: list[ListItem]) -> list[dict[str, Any]]:

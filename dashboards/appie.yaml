@@ -535,7 +535,7 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Tegoeden en Premium
+            heading: Air Miles, Premium en cadeaukaarten
             heading_style: title
             icon: mdi:wallet-outline
           - type: tile
@@ -551,11 +551,6 @@ views:
           - type: tile
             entity: sensor.albert_heijn_cadeaukaarten
             name: Cadeaukaarten
-            grid_options:
-              columns: 6
-          - type: tile
-            entity: sensor.albert_heijn_openstaand_tegoed
-            name: Openstaand tegoed
             grid_options:
               columns: 6
           - type: tile
