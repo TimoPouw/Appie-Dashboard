@@ -79,7 +79,6 @@ from .models import (
     parse_miles,
     parse_premium,
     parse_purchase_stamps,
-    parse_settlements,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -559,7 +558,6 @@ class Savings:
     challenges: list[dict] | None = None
     premium: dict | None = None
     gift_cards: list[dict] | None = None
-    settlements: dict | None = None
 
 
 class SavingsCoordinator(_AppieCoordinator[Savings]):
@@ -609,12 +607,10 @@ class SavingsCoordinator(_AppieCoordinator[Savings]):
         ok, raw = await self._part("premium", self.client.get_premium)
         if ok:
             new.premium = parse_premium(raw)
-        ok, raw = await self._part("tegoeden", self.client.get_wallet)
+        ok, raw = await self._part("cadeaukaarten", self.client.get_wallet)
         if ok:
             if raw.get("paymentsGetGiftCards") is not None:
                 new.gift_cards = parse_gift_cards(raw["paymentsGetGiftCards"])
-            if raw.get("settlementsTotal") is not None:
-                new.settlements = parse_settlements(raw["settlementsTotal"])
         return new
 
     def receipts_changed(self) -> None:

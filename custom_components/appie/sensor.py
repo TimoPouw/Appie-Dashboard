@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -29,10 +30,13 @@ from .coordinator import (
     SpotlightCoordinator,
     StoreCoordinator,
 )
+from .const import DOMAIN
 from .entity import device_info
 from .models import SOURCE_PERSONAL, favorite_attributes, missed_bonus, open_products, receipt_view
 
 RECENT_RECEIPTS = 10
+# Sensors that existed in an earlier version and are gone now.
+REMOVED_KEYS = ("openstaand_tegoed",)
 
 
 async def async_setup_entry(
@@ -41,6 +45,10 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     data = entry.runtime_data
+    registry = er.async_get(hass)
+    for key in REMOVED_KEYS:
+        if entity_id := registry.async_get_entity_id("sensor", DOMAIN, f"{entry.unique_id}_{key}"):
+            registry.async_remove(entity_id)
     async_add_entities(
         [
             BonusSensor(entry, data.bonus),
@@ -572,16 +580,6 @@ SAVINGS_SENSORS = (
         device_class=SensorDeviceClass.MONETARY,
         value=lambda c: round(sum(k.get("saldo") or 0 for k in c), 2),
         attributes=lambda c: {"aantal": len(c), "kaarten": c},
-    ),
-    SavingsDescription(
-        key="openstaand_tegoed",
-        name="Openstaand tegoed",
-        icon="mdi:cash-refund",
-        part="settlements",
-        unit="EUR",
-        device_class=SensorDeviceClass.MONETARY,
-        value=lambda t: t.get("totaal"),
-        attributes=lambda t: {"aantal": t.get("aantal")},
     ),
 )
 

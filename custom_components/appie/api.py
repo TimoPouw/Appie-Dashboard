@@ -276,7 +276,6 @@ PREMIUM_QUERY = """query FetchPremium($type: String!) {
 
 WALLET_QUERY = """query FetchWallet {
   paymentsGetGiftCards { cardNumber status createdDate balance { amount { amount } } }
-  settlementsTotal { totalAmount { amount } settlements { __typename } }
 }"""
 
 # subscriptionCurrent(type:) takes a String. Checked live: "PREMIUM" is accepted,
@@ -717,9 +716,11 @@ class AppieClient:
         return (await self._graphql(PREMIUM_QUERY, {"type": PREMIUM_TYPE}, partial=True)).get("data") or {}
 
     async def get_wallet(self) -> dict:
-        """Gift cards and open credit: GraphQL paymentsGetGiftCards and settlementsTotal. (inferred)
+        """Gift cards: GraphQL paymentsGetGiftCards. (inferred)
 
-        Both from the schema dump, both accepted without arguments (checked
-        live). Read-only: no card is added, charged or redeemed.
+        From the schema dump, accepted without arguments (checked live).
+        Read-only: no card is added, charged or redeemed. settlementsTotal was
+        left out: on a live account it stayed empty while the app showed a
+        customer service credit, so it can't be trusted for "verrekeningen".
         """
         return (await self._graphql(WALLET_QUERY, {}, partial=True)).get("data") or {}
