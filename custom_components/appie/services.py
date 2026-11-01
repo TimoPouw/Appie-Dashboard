@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .api import AppieError
 from .const import DOMAIN
-from .coordinator import AppieConfigEntry, SearchData
+from .coordinator import AppieConfigEntry
 from .models import (
     SOURCE_CATEGORY,
     SearchResult,
@@ -116,10 +116,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
     """Register the services (once, for all entries)."""
 
     async def search(call: ServiceCall) -> ServiceResponse:
-        query = call.data[ATTR_QUERY].strip()
-        results = (await _search(hass, query, call.data[ATTR_COUNT]))[: call.data[ATTR_COUNT]]
-        # Also into sensor.albert_heijn_zoekresultaat: a dashboard can't read a response.
-        _entry(hass).runtime_data.search.async_set_updated_data(SearchData(query=query, products=results))
+        data = _entry(hass).runtime_data
+        try:
+            # Also into sensor.albert_heijn_zoekresultaat: a dashboard can't read a response.
+            results = await data.search.async_search(data.client, call.data[ATTR_QUERY], call.data[ATTR_COUNT])
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
         return {"producten": [r.as_dict() for r in results]}
 
     async def _product_by_id(data, product_id: int) -> SearchResult:

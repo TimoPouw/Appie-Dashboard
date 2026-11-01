@@ -71,6 +71,7 @@ from .models import (
     parse_list,
     parse_receipt_detail,
     parse_receipts,
+    parse_search,
     parse_store,
     rank_purchases,
     receipt_lines,
@@ -610,6 +611,13 @@ class SearchResults(DataUpdateCoordinator[SearchData | None]):
 
     async def _async_update_data(self) -> SearchData | None:
         return self.data
+
+    async def async_search(self, client: AppieClient, query: str, count: int) -> list[SearchResult]:
+        """Search AH and keep the results for the sensor."""
+        query = query.strip()
+        results = parse_search(await client.search_products(query, count))[:count]
+        self.async_set_updated_data(SearchData(query=query, products=results))
+        return results
 
     def product(self, product_id: int) -> SearchResult | None:
         return next((p for p in self.data.products if p.product_id == product_id), None) if self.data else None

@@ -35,7 +35,7 @@ from .coordinator import (
 from .receipt_pdf import ReceiptPdfView
 from .services import async_setup_services
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SELECT, Platform.SENSOR, Platform.TODO]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SELECT, Platform.SENSOR, Platform.TEXT, Platform.TODO]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 

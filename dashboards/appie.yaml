@@ -273,6 +273,30 @@ views:
               Zet een hele lijst op je boodschappenlijst met de actie
               *Favoriete lijst naar boodschappenlijst* (`appie.favorite_list_to_list`).
 
+      - type: grid
+        cards:
+          - type: heading
+            heading: Zoeken
+            heading_style: title
+            icon: mdi:magnify
+          - type: entities
+            entities:
+              - entity: text.albert_heijn_zoeken
+                name: Zoek een product
+          - type: markdown
+            content: |
+              {% set producten = state_attr('sensor.albert_heijn_zoekresultaat', 'producten') or [] %}
+              {% set term = state_attr('sensor.albert_heijn_zoekresultaat', 'zoekterm') %}
+              {% if term %}*{{ producten | count }} treffers voor "{{ term }}"*{% endif %}
+              <table>
+              {% for p in producten %}
+              <tr><td>{% if p.image %}<img src="{{ p.image }}" width="44">{% endif %}</td>
+              <td><b>{{ p.title }}</b>{% if p.size %} · {{ p.size }}{% endif %}<br>
+              {% if p.is_bonus %}<font color="#e8590c">{{ p.bonus_mechanism }}</font> · {% endif %}<small>nr. {{ p.product_id }}</small></td>
+              <td>{% if p.price is not none %}€ {{ '%.2f' | format(p.price) }}{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+
   - title: Bonus
     path: bonus
     icon: mdi:sale

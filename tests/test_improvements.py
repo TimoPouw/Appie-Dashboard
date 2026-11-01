@@ -171,6 +171,17 @@ async def test_search_fills_sensor(hass: HomeAssistant, api) -> None:
     assert state.attributes["producten"][0]["image"] is None and "price" in state.attributes["producten"][0]
 
 
+async def test_search_text_entity(hass: HomeAssistant, api) -> None:
+    await setup_appie(hass)
+    await hass.services.async_call(
+        "text", "set_value", {"entity_id": "text.albert_heijn_zoeken", "value": " melk "}, blocking=True
+    )
+    api["search_products"].assert_awaited_with("melk", 10)
+    assert hass.states.get("text.albert_heijn_zoeken").state == "melk"
+    state = hass.states.get("sensor.albert_heijn_zoekresultaat")
+    assert state.state == "3" and state.attributes["zoekterm"] == "melk"
+
+
 async def test_add_product_by_id(hass: HomeAssistant, api) -> None:
     await setup_appie(hass)
     await hass.services.async_call(DOMAIN, "search", {"zoekterm": "melk"}, blocking=True)

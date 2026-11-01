@@ -44,6 +44,7 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `sensor.albert_heijn_bonus_box` | Aantal aanbiedingen in je persoonlijke Bonus Box. Attributen `max_activaties`, `geactiveerd`, `aanbiedingen` (`id`, `title`, `category`, `mechanism`, `price`, `price_was`, `image`, `activated`, `start_date`, `end_date`). |
 | `sensor.albert_heijn_bonus_box_volgende_week` | Aantal aanbiedingen in je Bonus Box van volgende week, zodra AH hem vult; tot dan 0. Dezelfde attributen als bij Bonus Box, plus `period_start` en `period_end`. |
 | `sensor.albert_heijn_zoekresultaat` | Aantal treffers van de laatste `appie.search`. Attributen `zoekterm` en `producten` (`product_id`, `title`, `size`, `price`, `image`, `is_bonus`, `bonus_mechanism`). Alleen in het geheugen: na een herstart is hij leeg. |
+| `text.albert_heijn_zoeken` | Zoekveld: typ een zoekterm en AH wordt doorzocht (10 treffers), die komen in `sensor.albert_heijn_zoekresultaat`. Zo heb je voor een zoekkaart geen helper nodig. |
 | `sensor.albert_heijn_favoriete_lijsten` | Aantal favoriete lijsten. Attribuut `lijsten`: `id`, `naam`, `aantal`, `image`. |
 | `binary_sensor.albert_heijn_winkel_open` | Is je vaste winkel nu open? |
 | `sensor.albert_heijn_winkel` | Sluitingstijd van vandaag ("22:00") of `gesloten`. Attributen `store_id`, `adres`, `openingstijden` (de komende dagen: `datum`, `dag`, `open`, `dicht`), `services`. |
@@ -362,7 +363,7 @@ Versies met `-beta` in de naam (zoals `v0.3.0-beta.1`) zijn pre-releases. HACS l
 
 ## Dashboard
 
-In [`dashboards/appie.yaml`](dashboards/appie.yaml) staat een kant-en-klaar dashboard met vijf tabbladen naast het overzicht: **Boodschappen** (lijst, kosten, Vaak gekocht-knoppen, Vergeet niet, favoriete lijsten), **Bonus** (bonus voor jou, Bonus Box, spotlight, en de bonus en Bonus Box van volgende week), **Kassabonnen** (uitgaven per maand, recente bonnen met PDF, bon bekijken) **Winkel** (openingstijden en koopjes) en **Sparen** (koopzegels, Air Miles, Premium, cadeaukaarten, uitdagingen, spaaracties en gemiste bonus). Het gebruikt alleen standaardkaarten van Home Assistant, dus je hoeft niets extra te installeren.
+In [`dashboards/appie.yaml`](dashboards/appie.yaml) staat een kant-en-klaar dashboard met vijf tabbladen naast het overzicht: **Boodschappen** (lijst, kosten, Vaak gekocht-knoppen, Vergeet niet, favoriete lijsten, zoeken), **Bonus** (bonus voor jou, Bonus Box, spotlight, en de bonus en Bonus Box van volgende week), **Kassabonnen** (uitgaven per maand, recente bonnen met PDF, bon bekijken) **Winkel** (openingstijden en koopjes) en **Sparen** (koopzegels, Air Miles, Premium, cadeaukaarten, uitdagingen, spaaracties en gemiste bonus). Het gebruikt alleen standaardkaarten van Home Assistant, dus je hoeft niets extra te installeren.
 
 1. Instellingen → Dashboards → **Dashboard toevoegen** → **Nieuw dashboard vanaf nul**, noem het bijvoorbeeld *Albert Heijn*.
 2. Open het, ⋮ → **Bewerken** → ⋮ → **Ruwe configuratie-editor**.

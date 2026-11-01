@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.5.5
 
 ### Nieuw
 
 - `sensor.albert_heijn_zoekresultaat`: de treffers van de laatste `appie.search` (`zoekterm`, `producten`), zodat een dashboard een zoekkaart kan tonen. Niet in de recorder.
 - `appie.add_product` heeft een veld `product_id`: zet precies dat product op de lijst in plaats van de beste match voor een zoekterm.
+- `text.albert_heijn_zoeken`: een zoekveld. Typ een zoekterm en de treffers komen in `sensor.albert_heijn_zoekresultaat`, zonder helper of script.
+- Dashboard: een kaart "Zoeken" op het tabblad Boodschappen, met de treffers, hun plaatje, prijs en productnummer.
 - `appie.search` kan nu ook zonder `response_variable` worden aangeroepen, bijvoorbeeld vanaf een dashboardknop.
 
 ## 0.5.4
