@@ -280,6 +280,23 @@ views:
     max_columns: 3
     sections:
       - type: grid
+        column_span: 3
+        cards:
+          - type: tile
+            entity: select.albert_heijn_bonusweek
+            name: Welke week?
+            hide_state: true
+            vertical: false
+            features_position: inline
+            features:
+              - type: select-options
+            grid_options:
+              columns: full
+      - type: grid
+        visibility:
+          - condition: state
+            entity: select.albert_heijn_bonusweek
+            state: Deze week
         cards:
           - type: heading
             heading: Bonus voor ons
@@ -311,6 +328,10 @@ views:
               {% endfor %}
               </table>
       - type: grid
+        visibility:
+          - condition: state
+            entity: select.albert_heijn_bonusweek
+            state: Deze week
         cards:
           - type: heading
             heading: Bonus Box
@@ -337,6 +358,10 @@ views:
               Geen Bonus Box deze week.
               {% endfor %}
       - type: grid
+        visibility:
+          - condition: state
+            entity: select.albert_heijn_bonusweek
+            state: Deze week
         cards:
           - type: heading
             heading: Spotlight
@@ -352,11 +377,27 @@ views:
               {% endfor %}
               </table>
       - type: grid
+        visibility:
+          - condition: state
+            entity: select.albert_heijn_bonusweek
+            state: Volgende week
         cards:
           - type: heading
-            heading: Volgende week
+            heading: Bonus voor ons volgende week
             heading_style: title
             icon: mdi:calendar-arrow-right
+          - type: tile
+            entity: sensor.albert_heijn_bonus_volgende_week
+            name: Aanbiedingen
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_bonus_volgende_week
+            name: Op je lijst
+            state_content: on_list
+            icon: mdi:cart-check
+            grid_options:
+              columns: 6
           - type: markdown
             content: |
               {% set offers = state_attr('sensor.albert_heijn_bonus_volgende_week', 'offers') or [] %}
@@ -373,6 +414,10 @@ views:
               </table>
               {% if not offers %}AH heeft de bonus van volgende week nog niet bekendgemaakt.{% endif %}
       - type: grid
+        visibility:
+          - condition: state
+            entity: select.albert_heijn_bonusweek
+            state: Volgende week
         cards:
           - type: heading
             heading: Bonus Box volgende week

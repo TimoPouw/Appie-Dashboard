@@ -6,6 +6,7 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
@@ -19,7 +20,33 @@ async def async_setup_entry(
     entry: AppieConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities([ReceiptSelect(entry, entry.runtime_data.receipt_viewer)])
+    async_add_entities([ReceiptSelect(entry, entry.runtime_data.receipt_viewer), BonusWeekSelect(entry)])
+
+
+BONUS_WEEKS = ["Deze week", "Volgende week"]
+
+
+class BonusWeekSelect(SelectEntity, RestoreEntity):
+    """Which bonus week the dashboard shows. Only a switch for the dashboard: it calls AH for nothing."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Bonusweek"
+    _attr_icon = "mdi:calendar-week"
+    _attr_options = BONUS_WEEKS
+
+    def __init__(self, entry: AppieConfigEntry) -> None:
+        self._attr_unique_id = f"{entry.unique_id}_bonusweek"
+        self._attr_device_info = device_info(entry)
+        self._attr_current_option = BONUS_WEEKS[0]
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_state()) and last.state in BONUS_WEEKS:
+            self._attr_current_option = last.state
+
+    async def async_select_option(self, option: str) -> None:
+        self._attr_current_option = option
+        self.async_write_ha_state()
 
 
 class ReceiptSelect(CoordinatorEntity[ReceiptViewerCoordinator], SelectEntity):

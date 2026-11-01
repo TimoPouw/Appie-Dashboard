@@ -266,3 +266,13 @@ async def test_activate_bonus_service(hass: HomeAssistant, api) -> None:
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(DOMAIN, "activate_bonus", {"aanbieding": "bestaat niet"},
                                        blocking=True, return_response=True)
+
+
+async def test_bonus_week_select(hass: HomeAssistant, api) -> None:
+    await setup_appie(hass)
+    entity = "select.albert_heijn_bonusweek"
+    assert hass.states.get(entity).state == "Deze week"
+    await hass.services.async_call(
+        "select", "select_option", {"entity_id": entity, "option": "Volgende week"}, blocking=True
+    )
+    assert hass.states.get(entity).state == "Volgende week"
