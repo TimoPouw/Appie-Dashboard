@@ -614,6 +614,31 @@ def bonus_period(raw_metadata: dict) -> tuple[str | None, str | None]:
     return periods[0].get("bonusStartDate"), periods[0].get("bonusEndDate")
 
 
+def next_bonus_period(raw_metadata: dict) -> tuple[str | None, str | None]:
+    """Next bonus week (start, end).
+
+    The app shows next week's bonus a few days ahead; the metadata then lists a
+    second period. Without one, next week is the 7 days after this week ends.
+    """
+    periods = raw_metadata.get("periods") or []
+    current_end = periods[0].get("bonusEndDate") if periods else None
+    for period in periods[1:]:
+        start = period.get("bonusStartDate")
+        if start and (not current_end or start > current_end):
+            return start, period.get("bonusEndDate")
+    if not current_end:
+        return None, None
+    end = date.fromisoformat(current_end)
+    return (end + timedelta(days=1)).isoformat(), (end + timedelta(days=7)).isoformat()
+
+
+def only_after(offers: list[BonusOffer], current_end: str | None) -> list[BonusOffer]:
+    """Drop offers that already end this week: AH falls back to them for a date it has no bonus for yet."""
+    if not current_end:
+        return offers
+    return [o for o in offers if not o.end_date or o.end_date[:10] > current_end]
+
+
 # --- receipts ----------------------------------------------------------------
 
 

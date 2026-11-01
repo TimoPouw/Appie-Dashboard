@@ -23,6 +23,7 @@ from .coordinator import (
     FavoritesCoordinator,
     ListCoordinator,
     ListCostCoordinator,
+    NextWeekBonusCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
     SavingsCoordinator,
@@ -78,6 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     bargains = BargainsCoordinator(hass, entry, client, store, favorites)
     receipt_viewer = ReceiptViewerCoordinator(hass, entry, client, receipts)
     spotlight = SpotlightCoordinator(hass, entry, client)
+    next_week = NextWeekBonusCoordinator(hass, entry, client, bonus)
     bonus_box = BonusBoxCoordinator(hass, entry, client, bonus)
     favorite_lists = FavoriteListsCoordinator(hass, entry, client)
     savings = SavingsCoordinator(hass, entry, client, receipts)
@@ -94,6 +96,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     # Starts on the latest receipt, which the receipts coordinator already has: no call.
     await receipt_viewer.async_refresh()
     await spotlight.async_refresh()
+    await next_week.async_refresh()
     await bonus_box.async_refresh()
     await favorite_lists.async_refresh()
     await savings.async_refresh()
@@ -101,6 +104,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     for follower in (bonus, list_cost, dont_forget):
         entry.async_on_unload(shopping_list.async_add_listener(follower.list_changed))
     entry.async_on_unload(favorites.async_add_listener(bargains.favorites_changed))
+    entry.async_on_unload(bonus.async_add_listener(next_week.bonus_changed))
     entry.async_on_unload(receipts.async_add_listener(receipt_viewer.receipts_changed))
     savings.receipts_changed()
     entry.async_on_unload(receipts.async_add_listener(savings.receipts_changed))
@@ -116,6 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
         bargains=bargains,
         receipt_viewer=receipt_viewer,
         spotlight=spotlight,
+        next_week=next_week,
         bonus_box=bonus_box,
         favorite_lists=favorite_lists,
         savings=savings,

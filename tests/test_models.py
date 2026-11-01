@@ -147,6 +147,23 @@ def test_bonus_period():
     assert models.bonus_period({}) == (None, None)
 
 
+def test_next_bonus_period():
+    week = {"bonusStartDate": "2026-10-05", "bonusEndDate": "2026-10-11"}
+    following = {"bonusStartDate": "2026-10-12", "bonusEndDate": "2026-10-18"}
+    assert models.next_bonus_period({"periods": [week, following]}) == ("2026-10-12", "2026-10-18")
+    # Not announced yet: the 7 days after this week.
+    assert models.next_bonus_period({"periods": [week]}) == ("2026-10-12", "2026-10-18")
+    assert models.next_bonus_period({}) == (None, None)
+
+
+def test_only_after():
+    this_week = models.BonusOffer(key="a", title="a", mechanism="", source="x", end_date="2026-10-11")
+    next_week = models.BonusOffer(key="b", title="b", mechanism="", source="x", end_date="2026-10-18T23:59")
+    unknown = models.BonusOffer(key="c", title="c", mechanism="", source="x")
+    assert models.only_after([this_week, next_week, unknown], "2026-10-11") == [next_week, unknown]
+    assert models.only_after([this_week], None) == [this_week]
+
+
 def test_receipts():
     receipts = models.parse_receipts(RECEIPTS)
     assert [r.id for r in receipts] == ["r2", "r1", "r0"]

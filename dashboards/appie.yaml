@@ -351,6 +351,27 @@ views:
               <td>{% if o.on_list %}🛒 {% endif %}<b>{{ o.title }}</b><br><font color="#e8590c">{{ o.mechanism }}</font></td></tr>
               {% endfor %}
               </table>
+      - type: grid
+        cards:
+          - type: heading
+            heading: Volgende week
+            heading_style: title
+            icon: mdi:calendar-arrow-right
+          - type: markdown
+            content: |
+              {% set offers = state_attr('sensor.albert_heijn_bonus_volgende_week', 'offers') or [] %}
+              {% set start = state_attr('sensor.albert_heijn_bonus_volgende_week', 'period_start') %}
+              {% set end = state_attr('sensor.albert_heijn_bonus_volgende_week', 'period_end') %}
+              {% if start and end %}*{{ as_timestamp(start) | timestamp_custom('%d-%m', true) }} t/m {{ as_timestamp(end) | timestamp_custom('%d-%m', true) }}*{% endif %}
+              <table>
+              {% for o in offers %}
+              <tr><td>{% if o.image %}<img src="{{ o.image }}" width="44">{% endif %}</td>
+              <td>{% if o.on_list %}🛒 {% endif %}<b>{{ o.title }}</b><br>
+              <font color="#e8590c">{{ o.mechanism }}</font>{% if o.source == 'persoonlijk' %} · persoonlijk{% endif %}</td>
+              <td>{% if o.price is not none %}€ {{ '%.2f' | format(o.price) }}{% endif %}{% if o.price_was %}<br><s>€ {{ '%.2f' | format(o.price_was) }}</s>{% endif %}</td></tr>
+              {% endfor %}
+              </table>
+              {% if not offers %}AH heeft de bonus van volgende week nog niet bekendgemaakt.{% endif %}
 
   - title: Kassabonnen
     path: kassabonnen

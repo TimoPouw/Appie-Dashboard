@@ -24,6 +24,7 @@ from .coordinator import (
     FavoriteListsCoordinator,
     FavoritesCoordinator,
     ListCostCoordinator,
+    NextWeekBonusCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
     SavingsCoordinator,
@@ -32,7 +33,15 @@ from .coordinator import (
 )
 from .const import DOMAIN
 from .entity import device_info
-from .models import SOURCE_PERSONAL, favorite_attributes, missed_bonus, open_products, receipt_view
+from .models import (
+    SOURCE_PERSONAL,
+    SOURCE_PREVIOUS,
+    SOURCE_SPOTLIGHT,
+    favorite_attributes,
+    missed_bonus,
+    open_products,
+    receipt_view,
+)
 
 RECENT_RECEIPTS = 10
 # Sensors that existed in an earlier version and are gone now.
@@ -63,6 +72,7 @@ async def async_setup_entry(
             BargainsSensor(entry, data.bargains),
             PickedReceiptSensor(entry, data.receipt_viewer),
             SpotlightSensor(entry, data.spotlight),
+            NextWeekBonusSensor(entry, data.next_week),
             BonusBoxSensor(entry, data.bonus_box),
             FavoriteListsSensor(entry, data.favorite_lists),
             MissedBonusSensor(entry, data.favorites),
@@ -420,6 +430,45 @@ class SpotlightSensor(_Base, SensorEntity):
                 {**o.as_dict(), "on_list": bool(on_list.intersection(o.product_ids))}
                 for o in self.coordinator.data or []
             ]
+        }
+
+
+class NextWeekBonusSensor(_Base, SensorEntity):
+    """Next week's bonus for us, as soon as AH shows it; on_list follows the list."""
+
+    _attr_icon = "mdi:calendar-arrow-right"
+    _attr_native_unit_of_measurement = "aanbiedingen"
+    _unrecorded_attributes = frozenset({"offers"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: NextWeekBonusCoordinator) -> None:
+        super().__init__(entry, coordinator, "bonus_volgende_week", "Bonus volgende week")
+        self._list = entry.runtime_data.shopping_list
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self._list.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self) -> int:
+        data = self.coordinator.data
+        return len(data.offers) if data else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        on_list = {i.product_id for i in open_products(self._list.data or [])}
+        offers = [
+            {**o.as_dict(), "on_list": bool(on_list.intersection(o.product_ids))} for o in (data.offers if data else [])
+        ]
+        # What's on the list first, then personal, previously bought and spotlight.
+        rank = {SOURCE_PERSONAL: 0, SOURCE_PREVIOUS: 1, SOURCE_SPOTLIGHT: 2}
+        offers.sort(key=lambda o: (not o["on_list"], rank.get(o["source"], 3)))
+        return {
+            "period_start": data.period_start if data else None,
+            "period_end": data.period_end if data else None,
+            "on_list": sum(o["on_list"] for o in offers),
+            "personal": sum(o["source"] == SOURCE_PERSONAL for o in offers),
+            "offers": offers,
         }
 
 

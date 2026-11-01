@@ -26,6 +26,69 @@ async def test_spotlight_sensor(hass: HomeAssistant, api) -> None:
     assert chips["key"] == "group:700"
 
 
+NEXT_META = {"periods": [
+    {"bonusStartDate": "2026-10-05", "bonusEndDate": "2026-10-11"},
+    {"bonusStartDate": "2026-10-12", "bonusEndDate": "2026-10-18"},
+]}
+NEXT_PERSONAL = {"bonusGroupOrProducts": [
+    {"product": {"webshopId": 111, "title": "AH Roomboter", "bonusMechanism": "1 + 1 GRATIS",
+                 "currentPrice": 1.65, "priceBeforeBonus": 3.29, "bonusEndDate": "2026-10-18"}},
+]}
+NEXT_SPOTLIGHT = {"bonusGroupOrProducts": [
+    {"product": {"webshopId": 111, "title": "AH Roomboter", "bonusMechanism": "1 + 1 GRATIS",
+                 "bonusEndDate": "2026-10-18"}},
+    {"product": {"webshopId": 500, "title": "Coca-Cola", "bonusMechanism": "25% korting",
+                 "bonusEndDate": "2026-10-18"}},
+    # AH still answers with this week's offer: not next week's bonus.
+    {"product": {"webshopId": 501, "title": "Oud", "bonusMechanism": "2 voor 3", "bonusEndDate": "2026-10-11"}},
+]}
+
+
+async def test_next_week_sensor(hass: HomeAssistant, api) -> None:
+    api["get_bonus_metadata"].return_value = NEXT_META
+
+    async def personal(start):
+        return NEXT_PERSONAL if start == "2026-10-12" else {}
+
+    async def spotlight(day):
+        return NEXT_SPOTLIGHT if day == date(2026, 10, 12) else {}
+
+    async def previous(day):
+        # A section AH won't give for next week doesn't hide the others.
+        if day == date(2026, 10, 12):
+            raise AppieError("no bonus for that date")
+        return {}
+
+    api["get_personal_bonus"].side_effect = personal
+    api["get_spotlight_bonus"].side_effect = spotlight
+    api["get_previously_bought_bonus"].side_effect = previous
+    await setup_appie(hass)
+    state = hass.states.get("sensor.albert_heijn_bonus_volgende_week")
+    assert state.state == "2"
+    assert state.attributes["period_start"] == "2026-10-12"
+    assert state.attributes["period_end"] == "2026-10-18"
+    butter, cola = state.attributes["offers"]
+    # The butter is on the list and personal; it is in spotlight too, but listed once.
+    assert butter["title"] == "AH Roomboter" and butter["source"] == "persoonlijk" and butter["on_list"] is True
+    assert cola["source"] == "spotlight" and cola["on_list"] is False
+    assert state.attributes["on_list"] == 1
+    # This week's sensors are untouched.
+    assert hass.states.get("sensor.albert_heijn_bonus_voor_ons").attributes["period_end"] == "2026-10-11"
+
+
+async def test_next_week_not_announced(hass: HomeAssistant, api) -> None:
+    # Default fixtures: only this week's offers come back, so nothing for next week yet.
+    api["get_spotlight_bonus"].return_value = {"bonusGroupOrProducts": [
+        {"product": {"webshopId": 501, "title": "Oud", "bonusMechanism": "2 voor 3", "bonusEndDate": "2026-10-11"}},
+    ]}
+    api["get_personal_bonus"].return_value = {}
+    api["get_previously_bought_bonus"].return_value = {}
+    await setup_appie(hass)
+    state = hass.states.get("sensor.albert_heijn_bonus_volgende_week")
+    assert state.state == "0"
+    assert state.attributes["period_start"] == "2026-10-12"
+
+
 async def test_bonus_box_sensor(hass: HomeAssistant, api) -> None:
     await setup_appie(hass)
     # Uses the bonus week from the metadata the bonus coordinator already fetched.

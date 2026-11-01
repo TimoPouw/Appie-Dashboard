@@ -53,6 +53,8 @@ from .models import (
     Store as AhStore,
     Suggestion,
     bonus_period,
+    next_bonus_period,
+    only_after,
     build_favorites,
     count_free_text,
     list_signature,
@@ -105,6 +107,7 @@ class AppieData:
     bargains: BargainsCoordinator
     receipt_viewer: ReceiptViewerCoordinator
     spotlight: SpotlightCoordinator
+    next_week: NextWeekBonusCoordinator
     bonus_box: BonusBoxCoordinator
     favorite_lists: FavoriteListsCoordinator
     savings: SavingsCoordinator
@@ -151,6 +154,8 @@ class BonusData:
     offers: list[BonusOffer]
     period_start: str | None
     period_end: str | None
+    next_start: str | None = None
+    next_end: str | None = None
 
 
 class BonusCoordinator(_AppieCoordinator[BonusData]):
@@ -162,12 +167,15 @@ class BonusCoordinator(_AppieCoordinator[BonusData]):
         self._personal: list[BonusOffer] = []
         self._previous: list[BonusOffer] = []
         self._period: tuple[str | None, str | None] = (None, None)
+        self._next: tuple[str | None, str | None] = (None, None)
 
     async def _fetch(self) -> BonusData:
         today = dt_util.now().date()
-        start, end = bonus_period(await self.client.get_bonus_metadata() or {})
+        metadata = await self.client.get_bonus_metadata() or {}
+        start, end = bonus_period(metadata)
         start = start or today.isoformat()
         self._period = (start, end)
+        self._next = next_bonus_period(metadata)
         self._personal = parse_bonus_section(await self.client.get_personal_bonus(start) or {}, SOURCE_PERSONAL)
         self._previous = parse_bonus_section(
             await self.client.get_previously_bought_bonus(today) or {}, SOURCE_PREVIOUS
@@ -179,6 +187,8 @@ class BonusCoordinator(_AppieCoordinator[BonusData]):
             offers=relevant_bonus(list(self._personal), list(self._previous), self._list.data or []),
             period_start=self._period[0],
             period_end=self._period[1],
+            next_start=self._next[0],
+            next_end=self._next[1],
         )
 
     def list_changed(self) -> None:
@@ -472,6 +482,64 @@ class SpotlightCoordinator(_AppieCoordinator[list[BonusOffer]]):
     async def _fetch(self) -> list[BonusOffer]:
         raw = await self.client.get_spotlight_bonus(dt_util.now().date())
         return parse_bonus_section(raw or {}, SOURCE_SPOTLIGHT)
+
+
+@dataclass
+class NextWeekBonus:
+    offers: list[BonusOffer]
+    period_start: str | None
+    period_end: str | None
+
+
+class NextWeekBonusCoordinator(_AppieCoordinator[NextWeekBonus | None]):
+    """Next week's bonus that matters to us: personal, previously bought and spotlight.
+
+    AH shows next week's bonus a few days before it starts. Until then the
+    sections are empty, or AH answers with this week's offers, which are dropped.
+    """
+
+    def __init__(self, hass, entry, client, bonus: BonusCoordinator) -> None:
+        super().__init__(hass, entry, client, "bonus volgende week", BONUS_INTERVAL)
+        self._bonus = bonus
+        self._asked_for: str | None = None
+
+    async def _fetch(self) -> NextWeekBonus | None:
+        week = self._bonus.data
+        if week is None or not week.next_start:
+            return None
+        self._asked_for = week.next_start
+        day = date.fromisoformat(week.next_start)
+        sections = (
+            (lambda: self.client.get_personal_bonus(week.next_start), SOURCE_PERSONAL),
+            (lambda: self.client.get_previously_bought_bonus(day), SOURCE_PREVIOUS),
+            (lambda: self.client.get_spotlight_bonus(day), SOURCE_SPOTLIGHT),
+        )
+        merged: dict[str, BonusOffer] = {}
+        failed: AppieError | None = None
+        for fetch, source in sections:
+            try:
+                raw = await fetch()
+            except AppieAuthError:
+                raise
+            except AppieError as err:
+                # One section AH won't give for a future week shouldn't hide the others.
+                _LOGGER.debug("Bonus volgende week, %s: %s", source, err)
+                failed = err
+                continue
+            for offer in only_after(parse_bonus_section(raw or {}, source), week.period_end):
+                merged.setdefault(offer.key, offer)
+        if failed and not merged:
+            raise failed
+        return NextWeekBonus(offers=list(merged.values()), period_start=week.next_start, period_end=week.next_end)
+
+    def bonus_changed(self) -> None:
+        """Fetch again once the bonus week has moved on (or AH announced next week)."""
+        week = self._bonus.data
+        if week is None or not week.next_start:
+            return
+        # Once per new week: the bonus coordinator calls this on every list update.
+        if week.next_start != self._asked_for:
+            self.hass.async_create_task(self.async_request_refresh())
 
 
 class BonusBoxCoordinator(_AppieCoordinator[BonusBox | None]):
