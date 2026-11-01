@@ -372,6 +372,35 @@ views:
               {% endfor %}
               </table>
               {% if not offers %}AH heeft de bonus van volgende week nog niet bekendgemaakt.{% endif %}
+      - type: grid
+        cards:
+          - type: heading
+            heading: Bonus Box volgende week
+            heading_style: title
+            icon: mdi:gift-open-outline
+          - type: tile
+            entity: sensor.albert_heijn_bonus_box_volgende_week
+            name: In je Bonus Box
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.albert_heijn_bonus_box_volgende_week
+            name: Geactiveerd
+            state_content: geactiveerd
+            icon: mdi:check-decagram
+            grid_options:
+              columns: 6
+          - type: markdown
+            content: |
+              {% set box = state_attr('sensor.albert_heijn_bonus_box_volgende_week', 'aanbiedingen') or [] %}
+              {% set start = state_attr('sensor.albert_heijn_bonus_box_volgende_week', 'period_start') %}
+              {% set end = state_attr('sensor.albert_heijn_bonus_box_volgende_week', 'period_end') %}
+              {% if start and end %}*{{ as_timestamp(start) | timestamp_custom('%d-%m', true) }} t/m {{ as_timestamp(end) | timestamp_custom('%d-%m', true) }}*{% endif %}
+              {% for o in box %}
+              - {{ '✅' if o.activated else '⬜' }} **{{ o.title }}**{% if o.mechanism %}: {{ o.mechanism }}{% endif %}
+              {% else %}
+              AH heeft je Bonus Box van volgende week nog niet gevuld.
+              {% endfor %}
 
   - title: Kassabonnen
     path: kassabonnen

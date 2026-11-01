@@ -33,6 +33,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: AppieCo
         "spotlight": len(data.spotlight.data or []),
         "next_week": len(data.next_week.data.offers) if data.next_week.data else None,
         "bonus_box": asdict(data.bonus_box.data) if data.bonus_box.data else None,
+        "next_bonus_box": asdict(data.next_bonus_box.data) if data.next_bonus_box.data else None,
         "favorite_lists": [asdict(fl) for fl in data.favorite_lists.data or []],
         # Card numbers are already cut to four digits; leave even those out here.
         "savings": {

@@ -109,6 +109,7 @@ class AppieData:
     spotlight: SpotlightCoordinator
     next_week: NextWeekBonusCoordinator
     bonus_box: BonusBoxCoordinator
+    next_bonus_box: NextWeekBonusBoxCoordinator
     favorite_lists: FavoriteListsCoordinator
     savings: SavingsCoordinator
 
@@ -554,6 +555,32 @@ class BonusBoxCoordinator(_AppieCoordinator[BonusBox | None]):
         if period is None or not period.period_start or not period.period_end:
             return None
         return parse_bonus_box(await self.client.get_bonus_box(period.period_start, period.period_end) or {})
+
+
+class NextWeekBonusBoxCoordinator(_AppieCoordinator[BonusBox | None]):
+    """Next week's Bonus Box, once AH has filled it (a few days before the week starts)."""
+
+    def __init__(self, hass, entry, client, bonus: BonusCoordinator) -> None:
+        super().__init__(hass, entry, client, "bonus box volgende week", BONUS_INTERVAL)
+        self._bonus = bonus
+        self._asked_for: str | None = None
+
+    async def _fetch(self) -> BonusBox | None:
+        week = self._bonus.data
+        if week is None or not week.next_start or not week.next_end:
+            return None
+        self._asked_for = week.next_start
+        box = parse_bonus_box(await self.client.get_bonus_box(week.next_start, week.next_end) or {})
+        # Offers that end this week are this week's box, not next week's.
+        if week.period_end:
+            box.offers = [o for o in box.offers if not o.get("end_date") or o["end_date"][:10] > week.period_end]
+        return box
+
+    def bonus_changed(self) -> None:
+        """Fetch again once the bonus week has moved on."""
+        week = self._bonus.data
+        if week is not None and week.next_start and week.next_start != self._asked_for:
+            self.hass.async_create_task(self.async_request_refresh())
 
 
 class FavoriteListsCoordinator(_AppieCoordinator[list[FavoriteList]]):

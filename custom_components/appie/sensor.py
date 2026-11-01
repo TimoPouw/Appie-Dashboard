@@ -24,6 +24,7 @@ from .coordinator import (
     FavoriteListsCoordinator,
     FavoritesCoordinator,
     ListCostCoordinator,
+    NextWeekBonusBoxCoordinator,
     NextWeekBonusCoordinator,
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
@@ -74,6 +75,7 @@ async def async_setup_entry(
             SpotlightSensor(entry, data.spotlight),
             NextWeekBonusSensor(entry, data.next_week),
             BonusBoxSensor(entry, data.bonus_box),
+            NextWeekBonusBoxSensor(entry, data.next_bonus_box),
             FavoriteListsSensor(entry, data.favorite_lists),
             MissedBonusSensor(entry, data.favorites),
             *(SavingsSensor(entry, data.savings, description) for description in SAVINGS_SENSORS),
@@ -493,6 +495,30 @@ class BonusBoxSensor(_Base, SensorEntity):
         if box is None:
             return {}
         return {"max_activaties": box.max_activations, "geactiveerd": box.activated, "aanbiedingen": box.offers}
+
+
+class NextWeekBonusBoxSensor(BonusBoxSensor):
+    """Next week's Bonus Box; 0 until AH has filled it."""
+
+    _attr_icon = "mdi:gift-open-outline"
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: NextWeekBonusBoxCoordinator) -> None:
+        _Base.__init__(self, entry, coordinator, "bonus_box_volgende_week", "Bonus Box volgende week")
+        self._bonus = entry.runtime_data.bonus
+
+    @property
+    def native_value(self) -> int:
+        box = self.coordinator.data
+        return len(box.offers) if box else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        week = self._bonus.data
+        return {
+            "period_start": week.next_start if week else None,
+            "period_end": week.next_end if week else None,
+            **super().extra_state_attributes,
+        }
 
 
 class FavoriteListsSensor(_Base, SensorEntity):

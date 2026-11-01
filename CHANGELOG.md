@@ -5,7 +5,9 @@
 ### Nieuw
 
 - `sensor.albert_heijn_bonus_volgende_week`: de bonus van volgende week die ertoe doet (persoonlijk, eerder gekocht en spotlight), zodra AH hem in de app laat zien. Tot dan staat hij op 0. Alles van deze week werd al getoond; volgende week nog niet.
-- Dashboard: een kaart "Volgende week" op het bonustabblad.
+- `sensor.albert_heijn_bonus_box_volgende_week`: je Bonus Box van volgende week, zodra AH hem vult. Tot dan staat hij op 0.
+- `appie.activate_bonus` kan ook een aanbieding uit de Bonus Box van volgende week activeren.
+- Dashboard: kaarten "Volgende week" en "Bonus Box volgende week" op het bonustabblad.
 
 ## 0.5.3
 

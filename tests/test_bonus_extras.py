@@ -1,6 +1,7 @@
 """Spotlight bonus, bonus per category and the Bonus Box."""
 
 from datetime import date
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -89,10 +90,52 @@ async def test_next_week_not_announced(hass: HomeAssistant, api) -> None:
     assert state.attributes["period_start"] == "2026-10-12"
 
 
+async def test_next_week_bonus_box(hass: HomeAssistant, api) -> None:
+    api["get_bonus_metadata"].return_value = NEXT_META
+    next_box = {"data": {
+        "bonusPersonalPromotionBundles": [{"maximumActivations": 10}],
+        "bonusPromotions": [
+            {"id": "9001", "hqId": 1, "title": "AH Hummus", "activationStatus": "NOT_ACTIVATED",
+             "periodStart": "2026-10-12", "periodEnd": "2026-10-18", "rawPromotionLabels": [{"mechanism": "25%"}]},
+            # Still this week's offer: dropped.
+            {"id": "9002", "hqId": 2, "title": "Oud", "activationStatus": "ACTIVATED",
+             "periodStart": "2026-10-05", "periodEnd": "2026-10-11"},
+        ],
+    }}
+
+    async def box(start, end):
+        return next_box if start == "2026-10-12" else BONUS_BOX
+
+    api["get_bonus_box"].side_effect = box
+    api["activate_bonus_offer"] = AsyncMock(return_value={"status": "OK"})
+    await setup_appie(hass)
+    api["get_bonus_box"].assert_any_await("2026-10-12", "2026-10-18")
+    state = hass.states.get("sensor.albert_heijn_bonus_box_volgende_week")
+    assert state.state == "1"
+    assert state.attributes["period_start"] == "2026-10-12"
+    assert state.attributes["geactiveerd"] == 0
+    assert state.attributes["aanbiedingen"][0]["title"] == "AH Hummus"
+    # This week's box is unchanged.
+    assert hass.states.get("sensor.albert_heijn_bonus_box").state == "2"
+
+    with patch("custom_components.appie.api.AppieClient.activate_bonus_offer", api["activate_bonus_offer"]):
+        response = await hass.services.async_call(
+            DOMAIN, "activate_bonus", {"aanbieding": "9001"}, blocking=True, return_response=True
+        )
+    assert api["activate_bonus_offer"].await_args.args[0]["id"] == "9001"
+    assert response["id"] == "9001" and response["status"] == "OK"
+
+
+async def test_next_week_bonus_box_not_filled(hass: HomeAssistant, api) -> None:
+    await setup_appie(hass)
+    # Default box only has offers of an earlier week.
+    assert hass.states.get("sensor.albert_heijn_bonus_box_volgende_week").state == "0"
+
+
 async def test_bonus_box_sensor(hass: HomeAssistant, api) -> None:
     await setup_appie(hass)
     # Uses the bonus week from the metadata the bonus coordinator already fetched.
-    api["get_bonus_box"].assert_awaited_once_with("2026-10-05", "2026-10-11")
+    api["get_bonus_box"].assert_any_await("2026-10-05", "2026-10-11")
     state = hass.states.get("sensor.albert_heijn_bonus_box")
     assert state.state == "2"
     assert state.attributes["max_activaties"] == 10

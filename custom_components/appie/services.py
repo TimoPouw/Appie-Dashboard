@@ -266,9 +266,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def activate_bonus(call: ServiceCall) -> ServiceResponse:
         data = _entry(hass).runtime_data
         wanted = call.data[ATTR_OFFER].strip().lower()
-        box = data.bonus_box.data
-        offers = box.offers if box else []
-        offer = next((o for o in offers if str(o["id"]).lower() == wanted or o["title"].lower() == wanted), None)
+        # This week's box first, then next week's (AH lets you activate those ahead).
+        box = offer = None
+        coordinator = data.bonus_box
+        for candidate in (data.bonus_box, data.next_bonus_box):
+            offers = candidate.data.offers if candidate.data else []
+            offer = next((o for o in offers if str(o["id"]).lower() == wanted or o["title"].lower() == wanted), None)
+            if offer is not None:
+                box, coordinator = candidate.data, candidate
+                break
         if offer is None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
@@ -287,8 +293,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
             result = await data.client.activate_bonus_offer(offer)
         except AppieError as err:
             raise HomeAssistantError(f"Albert Heijn: {err}") from err
-        await data.bonus_box.async_refresh()
-        refreshed = data.bonus_box.data.offers if data.bonus_box.data else []
+        await coordinator.async_refresh()
+        refreshed = coordinator.data.offers if coordinator.data else []
         after = next((o for o in refreshed if o["id"] == offer["id"]), None)
         return {
             "id": offer["id"],
