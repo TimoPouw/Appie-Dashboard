@@ -43,6 +43,7 @@ Een 100% ge-vibe-code Home Assistant-integratie voor je Albert Heijn-account (de
 | `sensor.albert_heijn_bonus_volgende_week` | Aantal relevante aanbiedingen van volgende week (persoonlijk, eerder gekocht, spotlight), zodra AH ze laat zien; tot dan 0. Attribuut `offers`: dezelfde velden als bij Bonus voor ons, `on_list` volgt je lijst. Ook `period_start`, `period_end`, `on_list`, `personal`. |
 | `sensor.albert_heijn_bonus_box` | Aantal aanbiedingen in je persoonlijke Bonus Box. Attributen `max_activaties`, `geactiveerd`, `aanbiedingen` (`id`, `title`, `category`, `mechanism`, `price`, `price_was`, `image`, `activated`, `start_date`, `end_date`). |
 | `sensor.albert_heijn_bonus_box_volgende_week` | Aantal aanbiedingen in je Bonus Box van volgende week, zodra AH hem vult; tot dan 0. Dezelfde attributen als bij Bonus Box, plus `period_start` en `period_end`. |
+| `sensor.albert_heijn_zoekresultaat` | Aantal treffers van de laatste `appie.search`. Attributen `zoekterm` en `producten` (`product_id`, `title`, `size`, `price`, `image`, `is_bonus`, `bonus_mechanism`). Alleen in het geheugen: na een herstart is hij leeg. |
 | `sensor.albert_heijn_favoriete_lijsten` | Aantal favoriete lijsten. Attribuut `lijsten`: `id`, `naam`, `aantal`, `image`. |
 | `binary_sensor.albert_heijn_winkel_open` | Is je vaste winkel nu open? |
 | `sensor.albert_heijn_winkel` | Sluitingstijd van vandaag ("22:00") of `gesloten`. Attributen `store_id`, `adres`, `openingstijden` (de komende dagen: `datum`, `dag`, `open`, `dicht`), `services`. |
@@ -122,7 +123,16 @@ producten:
     bonus_mechanism: null
 ```
 
-**`appie.add_product`**: zoekt een product en zet de beste match als echt product op je lijst. Wat in Vaak gekocht staat gaat voor, dan wat je eerder kocht, dan het beste zoekresultaat. `aantal` is optioneel (standaard 1).
+De treffers komen ook in `sensor.albert_heijn_zoekresultaat`, zodat een dashboard ze kan tonen. Een dashboardknop kan `appie.search` dus gewoon aanroepen, zonder `response_variable`.
+
+**`appie.add_product`**: zet een product als echt product op je lijst. Met `product_id` precies dat product (bijvoorbeeld een treffer uit `sensor.albert_heijn_zoekresultaat`). Met `zoekterm` de beste match: wat in Vaak gekocht staat gaat voor, dan wat je eerder kocht, dan het beste zoekresultaat. `aantal` is optioneel (standaard 1).
+
+```yaml
+action: appie.add_product
+data:
+  product_id: 901
+  aantal: 2
+```
 
 ```yaml
 action: appie.add_product

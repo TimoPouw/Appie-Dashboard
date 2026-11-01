@@ -68,7 +68,7 @@
   "services": {
     "search": {
       "name": "Producten zoeken",
-      "description": "Zoekt in het AH-assortiment en geeft de gevonden producten terug.",
+      "description": "Zoekt in het AH-assortiment, geeft de gevonden producten terug en zet ze in sensor.albert_heijn_zoekresultaat.",
       "fields": {
         "zoekterm": {
           "name": "Zoekterm",
@@ -82,15 +82,19 @@
     },
     "add_product": {
       "name": "Product op de lijst zetten",
-      "description": "Zoekt een product en zet de beste match als echt product op je lijst. Wat je vaak koopt gaat voor.",
+      "description": "Zet een product op je lijst: precies dat product met `product_id`, of de beste match voor `zoekterm`. Wat je vaak koopt gaat voor.",
       "fields": {
         "zoekterm": {
           "name": "Zoekterm",
-          "description": "Wat je op de lijst wilt, bijvoorbeeld \"halfvolle melk\"."
+          "description": "Wat je op de lijst wilt, bijvoorbeeld \"halfvolle melk\". Niet nodig met product_id."
         },
         "aantal": {
           "name": "Aantal",
           "description": "Hoeveel stuks (standaard 1)."
+        },
+        "product_id": {
+          "name": "Productnummer",
+          "description": "Zet precies dit product op de lijst, bijvoorbeeld een uit sensor.albert_heijn_zoekresultaat."
         }
       }
     },

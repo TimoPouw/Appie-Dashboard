@@ -68,7 +68,7 @@
   "services": {
     "search": {
       "name": "Search products",
-      "description": "Searches the AH product range and returns the products found.",
+      "description": "Searches the AH product range, returns the products found and puts them in sensor.albert_heijn_zoekresultaat.",
       "fields": {
         "zoekterm": {
           "name": "Search term",
@@ -82,15 +82,19 @@
     },
     "add_product": {
       "name": "Add product to list",
-      "description": "Searches for a product and puts the best match on the shopping list as a real product. Products you often buy win.",
+      "description": "Puts a product on the shopping list: the exact product with `product_id`, or the best match for `zoekterm`. Products you often buy win.",
       "fields": {
         "zoekterm": {
           "name": "Search term",
-          "description": "What to add, e.g. \"halfvolle melk\"."
+          "description": "What to add, e.g. \"halfvolle melk\". Not needed with product_id."
         },
         "aantal": {
           "name": "Quantity",
           "description": "How many to add (default 1)."
+        },
+        "product_id": {
+          "name": "Product id",
+          "description": "Add exactly this product, e.g. one from sensor.albert_heijn_zoekresultaat."
         }
       }
     },

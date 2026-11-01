@@ -50,6 +50,7 @@ from .models import (
     ListItem,
     Receipt,
     ReceiptDetail,
+    SearchResult,
     Store as AhStore,
     Suggestion,
     bonus_period,
@@ -112,6 +113,7 @@ class AppieData:
     next_bonus_box: NextWeekBonusBoxCoordinator
     favorite_lists: FavoriteListsCoordinator
     savings: SavingsCoordinator
+    search: SearchResults
 
 
 type AppieConfigEntry = ConfigEntry[AppieData]
@@ -591,6 +593,26 @@ class FavoriteListsCoordinator(_AppieCoordinator[list[FavoriteList]]):
 
     async def _fetch(self) -> list[FavoriteList]:
         return parse_favorite_lists(await self.client.get_favorite_lists())
+
+
+@dataclass
+class SearchData:
+    query: str
+    products: list[SearchResult]
+
+
+class SearchResults(DataUpdateCoordinator[SearchData | None]):
+    """The last appie.search, held for the dashboard (in memory only; AH is only called by the service)."""
+
+    def __init__(self, hass, entry) -> None:
+        super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN} zoekresultaat", update_interval=None)
+        self.data = None
+
+    async def _async_update_data(self) -> SearchData | None:
+        return self.data
+
+    def product(self, product_id: int) -> SearchResult | None:
+        return next((p for p in self.data.products if p.product_id == product_id), None) if self.data else None
 
 
 @dataclass

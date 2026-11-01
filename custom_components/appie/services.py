@@ -12,9 +12,10 @@ from homeassistant.util import dt as dt_util
 
 from .api import AppieError
 from .const import DOMAIN
-from .coordinator import AppieConfigEntry
+from .coordinator import AppieConfigEntry, SearchData
 from .models import (
     SOURCE_CATEGORY,
+    SearchResult,
     bonus_categories,
     parse_bonus_section,
     parse_favorite_list_items,
@@ -58,11 +59,15 @@ SEARCH_SCHEMA = vol.Schema(
         vol.Optional(ATTR_COUNT, default=10): vol.All(vol.Coerce(int), vol.Range(min=1, max=50)),
     }
 )
-ADD_PRODUCT_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
-        vol.Optional(ATTR_COUNT, default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
-    }
+ADD_PRODUCT_SCHEMA = vol.All(
+    vol.Schema(
+        {
+            vol.Optional(ATTR_QUERY): vol.All(cv.string, vol.Length(min=1)),
+            vol.Optional(ATTR_PRODUCT_ID): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            vol.Optional(ATTR_COUNT, default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=99)),
+        }
+    ),
+    cv.has_at_least_one_key(ATTR_QUERY, ATTR_PRODUCT_ID),
 )
 PRODUCT_SCHEMA = vol.Schema({vol.Required(ATTR_PRODUCT_ID): vol.All(vol.Coerce(int), vol.Range(min=1))})
 PRODUCTS_SCHEMA = vol.Schema(
@@ -111,21 +116,45 @@ def async_setup_services(hass: HomeAssistant) -> None:
     """Register the services (once, for all entries)."""
 
     async def search(call: ServiceCall) -> ServiceResponse:
-        results = await _search(hass, call.data[ATTR_QUERY], call.data[ATTR_COUNT])
-        return {"producten": [r.as_dict() for r in results[: call.data[ATTR_COUNT]]]}
+        query = call.data[ATTR_QUERY].strip()
+        results = (await _search(hass, query, call.data[ATTR_COUNT]))[: call.data[ATTR_COUNT]]
+        # Also into sensor.albert_heijn_zoekresultaat: a dashboard can't read a response.
+        _entry(hass).runtime_data.search.async_set_updated_data(SearchData(query=query, products=results))
+        return {"producten": [r.as_dict() for r in results]}
 
-    async def add_product(call: ServiceCall) -> ServiceResponse:
-        query = call.data[ATTR_QUERY]
-        data = _entry(hass).runtime_data
-        results = await _search(hass, query, ADD_PRODUCT_CANDIDATES)
-        match = best_match(results, data.favorites.data or [])
-        if match is None:
+    async def _product_by_id(data, product_id: int) -> SearchResult:
+        """The exact product: from the last search if it's there, else asked from AH."""
+        if found := data.search.product(product_id):
+            return found
+        try:
+            raw = await data.client.get_products([product_id])
+        except AppieError as err:
+            raise HomeAssistantError(f"Albert Heijn: {err}") from err
+        found = parse_search(list(raw.values()))
+        if not found:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
-                translation_key="no_product",
-                translation_placeholders={"query": query},
+                translation_key="unknown_product",
+                translation_placeholders={"product_id": str(product_id)},
             )
-        product, reason = match
+        return found[0]
+
+    async def add_product(call: ServiceCall) -> ServiceResponse:
+        data = _entry(hass).runtime_data
+        if ATTR_PRODUCT_ID in call.data:
+            # Exactly this product, e.g. the one tapped in the search results.
+            product, reason = await _product_by_id(data, call.data[ATTR_PRODUCT_ID]), "product_id"
+        else:
+            query = call.data[ATTR_QUERY]
+            results = await _search(hass, query, ADD_PRODUCT_CANDIDATES)
+            match = best_match(results, data.favorites.data or [])
+            if match is None:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="no_product",
+                    translation_placeholders={"query": query},
+                )
+            product, reason = match
         wanted = new_product_item(product.product_id, product.title)
         current = next((i for i in data.shopping_list.data or [] if i.key == wanted.key), None)
         count = call.data[ATTR_COUNT]
@@ -396,7 +425,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_GET_RECEIPT, get_receipt, schema=RECEIPT_SCHEMA, supports_response=SupportsResponse.ONLY
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_SEARCH, search, schema=SEARCH_SCHEMA, supports_response=SupportsResponse.ONLY
+        DOMAIN, SERVICE_SEARCH, search, schema=SEARCH_SCHEMA, supports_response=SupportsResponse.OPTIONAL
     )
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_PRODUCT, add_product, schema=ADD_PRODUCT_SCHEMA, supports_response=SupportsResponse.OPTIONAL

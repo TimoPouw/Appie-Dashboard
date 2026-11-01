@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+import voluptuous as vol
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
@@ -49,7 +50,7 @@ async def test_options_change_button_count(hass: HomeAssistant, api) -> None:
 async def test_options_reject_out_of_range(hass: HomeAssistant, api) -> None:
     entry = await setup_appie(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    with pytest.raises(Exception):
+    with pytest.raises(vol.Invalid):
         await hass.config_entries.options.async_configure(
             result["flow_id"], {"favorites_count": 51, "favorites_days": 60}
         )
@@ -155,6 +156,51 @@ async def test_add_product_prefers_favorites(hass: HomeAssistant, api) -> None:
         await hass.services.async_call(
             DOMAIN, "add_product", {"zoekterm": "xyzzy"}, blocking=True, return_response=True
         )
+
+
+async def test_search_fills_sensor(hass: HomeAssistant, api) -> None:
+    await setup_appie(hass)
+    state = hass.states.get("sensor.albert_heijn_zoekresultaat")
+    assert state.state == "0" and state.attributes["producten"] == []
+    # Without return_response, as a dashboard button calls it.
+    await hass.services.async_call(DOMAIN, "search", {"zoekterm": " melk ", "aantal": 2}, blocking=True)
+    state = hass.states.get("sensor.albert_heijn_zoekresultaat")
+    assert state.state == "2"
+    assert state.attributes["zoekterm"] == "melk"
+    assert [p["product_id"] for p in state.attributes["producten"]] == [900, 111]
+    assert state.attributes["producten"][0]["image"] is None and "price" in state.attributes["producten"][0]
+
+
+async def test_add_product_by_id(hass: HomeAssistant, api) -> None:
+    await setup_appie(hass)
+    await hass.services.async_call(DOMAIN, "search", {"zoekterm": "melk"}, blocking=True)
+    searches = api["search_products"].await_count
+    # Exactly the tapped product, not the best match (that would be the butter, often bought).
+    response = await hass.services.async_call(
+        DOMAIN, "add_product", {"product_id": 901, "aantal": 2}, blocking=True, return_response=True
+    )
+    assert response["product_id"] == 901 and response["title"] == "Campina Halfvolle melk"
+    assert response["match"] == "product_id" and response["quantity_on_list"] == 2
+    assert api["search_products"].await_count == searches
+    body = api["patch_list"].await_args.args[0][0]
+    assert body["productId"] == 901 and body["quantity"] == 2
+
+    # Not in the last search: the product card comes from AH.
+    api["get_products"].return_value = {
+        441199: {"webshopId": 441199, "title": "AH Pindakaas", "salesUnitSize": "350 g", "currentPrice": 2.09}
+    }
+    response = await hass.services.async_call(
+        DOMAIN, "add_product", {"product_id": 441199}, blocking=True, return_response=True
+    )
+    api["get_products"].assert_awaited_with([441199])
+    assert response["title"] == "AH Pindakaas"
+
+    api["get_products"].return_value = {}
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "add_product", {"product_id": 5}, blocking=True)
+    # Neither zoekterm nor product_id.
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(DOMAIN, "add_product", {"aantal": 1}, blocking=True)
 
 
 async def test_services_need_a_loaded_entry(hass: HomeAssistant, api) -> None:

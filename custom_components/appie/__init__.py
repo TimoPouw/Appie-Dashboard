@@ -28,6 +28,7 @@ from .coordinator import (
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
     SavingsCoordinator,
+    SearchResults,
     SpotlightCoordinator,
     StoreCoordinator,
 )
@@ -85,6 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
     next_bonus_box = NextWeekBonusBoxCoordinator(hass, entry, client, bonus)
     favorite_lists = FavoriteListsCoordinator(hass, entry, client)
     savings = SavingsCoordinator(hass, entry, client, receipts)
+    search = SearchResults(hass, entry)
 
     # Sequential on purpose: the first call may refresh the token.
     await shopping_list.async_config_entry_first_refresh()
@@ -129,6 +131,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AppieConfigEntry) -> boo
         next_bonus_box=next_bonus_box,
         favorite_lists=favorite_lists,
         savings=savings,
+        search=search,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # The first count reads ~100 receipts (15 s); don't hold up startup for it.

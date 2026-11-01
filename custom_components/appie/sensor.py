@@ -29,6 +29,7 @@ from .coordinator import (
     ReceiptsCoordinator,
     ReceiptViewerCoordinator,
     SavingsCoordinator,
+    SearchResults,
     SpotlightCoordinator,
     StoreCoordinator,
 )
@@ -78,6 +79,7 @@ async def async_setup_entry(
             NextWeekBonusBoxSensor(entry, data.next_bonus_box),
             FavoriteListsSensor(entry, data.favorite_lists),
             MissedBonusSensor(entry, data.favorites),
+            SearchSensor(entry, data.search),
             *(SavingsSensor(entry, data.savings, description) for description in SAVINGS_SENSORS),
         ]
     )
@@ -518,6 +520,31 @@ class NextWeekBonusBoxSensor(BonusBoxSensor):
             "period_start": week.next_start if week else None,
             "period_end": week.next_end if week else None,
             **super().extra_state_attributes,
+        }
+
+
+class SearchSensor(_Base, SensorEntity):
+    """The products the last appie.search found, for a search card on the dashboard."""
+
+    _attr_icon = "mdi:magnify"
+    _attr_native_unit_of_measurement = "producten"
+    # Big and changes on every search; keep it out of the database.
+    _unrecorded_attributes = frozenset({"zoekterm", "producten"})
+
+    def __init__(self, entry: AppieConfigEntry, coordinator: SearchResults) -> None:
+        super().__init__(entry, coordinator, "zoekresultaat", "Zoekresultaat")
+
+    @property
+    def native_value(self) -> int:
+        data = self.coordinator.data
+        return len(data.products) if data else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        return {
+            "zoekterm": data.query if data else None,
+            "producten": [p.as_dict() for p in data.products] if data else [],
         }
 
 
